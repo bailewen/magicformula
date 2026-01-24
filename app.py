@@ -81,14 +81,30 @@ with st.sidebar:
         help="Minimum market capitalization in USD"
     )
     
-    limit = st.slider(
-        "Max Stocks to Scan", 
-        min_value=10, 
-        max_value=4500, 
-        value=400,
-        help="Limit processing (set to 4500 for all stocks)"
+scan_mode = st.radio(
+        "Max Stocks to Scan",
+        options=["Use Slider", "Enter Manually"],
+        horizontal=True
     )
     
+    if scan_mode == "Use Slider":
+        limit = st.slider(
+            "Number of stocks",
+            min_value=10, 
+            max_value=4500, 
+            value=400,
+            help="Limit processing (set to 4500 for all stocks)"
+        )
+    else:
+        limit = st.number_input(
+            "Number of stocks",
+            min_value=10,
+            max_value=10000,
+            value=400,
+            step=50,
+            help="Enter any number (higher values may take longer)"
+        )
+        
     top_n = st.number_input(
         "Top N Results to Display", 
         value=30, 
