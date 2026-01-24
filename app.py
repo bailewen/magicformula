@@ -55,6 +55,23 @@ with st.sidebar:
         in_market = st.checkbox("🇮🇳 IND", value=False)
         cn = st.checkbox("🇨🇳 CHN", value=False)
     
+# Build countries list
+    selected_countries = []
+    if us: selected_countries.append("US")
+    if sg: selected_countries.append("SG")
+    if uk: selected_countries.append("GB")
+    if ca: selected_countries.append("CA")
+    if au: selected_countries.append("AU")
+    if de: selected_countries.append("DE")
+    if fr: selected_countries.append("FR")
+    if jp: selected_countries.append("JP")
+    if hk: selected_countries.append("HK")
+    if kr: selected_countries.append("KR")
+    if in_market: selected_countries.append("IN")
+    if cn: selected_countries.append("CN")
+    
+    if not selected_countries:
+        st.warning("⚠️ Please select at least one market")
     
     min_mcap = st.number_input(
         "Min Market Cap (USD)", 
@@ -104,7 +121,7 @@ if run_button:
         all_symbols = []
         for ex in exchanges_list:
             try:
-                rows = mf.list_symbols(ex, min_mcap)
+                rows = mf.list_symbols(ex, min_mcap,selected_countries)
                 for r in rows:
                     sym = r.get("symbol")
                     if sym:
