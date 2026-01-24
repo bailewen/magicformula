@@ -31,6 +31,30 @@ with st.sidebar:
         value="NASDAQ,NYSE,AMEX",
         help="FMP exchange codes like NASDAQ, NYSE, AMEX, LSE"
     )
+st.subheader("Markets")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("**Tier 1**")
+        us = st.checkbox("🇺🇸 USA", value=True)
+        sg = st.checkbox("🇸🇬 Singapore", value=False)
+        uk = st.checkbox("🇬🇧 GBR", value=False)
+        ca = st.checkbox("🇨🇦 Canada", value=False)
+        
+    with col2:
+        st.markdown("**Tier 2**")
+        au = st.checkbox("🇦🇺 Australia", value=False)
+        de = st.checkbox("🇩🇪 Germany", value=False)
+        fr = st.checkbox("🇫🇷 France", value=False)
+        jp = st.checkbox("🇯🇵 Japan", value=False)
+        
+    with col3:
+        st.markdown("**Tier 3**")
+        hk = st.checkbox("🇭🇰 Hong Kong", value=False)
+        kr = st.checkbox("🇰🇷 South Korea", value=False)
+        in_market = st.checkbox("🇮🇳 India", value=False)
+        cn = st.checkbox("🇨🇳 China", value=False)
+    
     
     min_mcap = st.number_input(
         "Min Market Cap (USD)", 
