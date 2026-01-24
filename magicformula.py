@@ -188,11 +188,7 @@ def pull_company(symbol: str) -> Optional[Dict[str, Any]]:
         prof = fmp_profile(symbol)
         if not prof:
             return None
-"""
-     # Keep only US companies
-        if prof.get("country") != "US":
-            return None
-"""
+
 # Country filter handled in list_symbols
      
         # Exclude sectors
