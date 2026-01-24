@@ -81,7 +81,7 @@ with st.sidebar:
         help="Minimum market capitalization in USD"
     )
     
-scan_mode = st.radio(
+    scan_mode = st.radio(
         "Max Stocks to Scan",
         options=["Use Slider", "Enter Manually"],
         horizontal=True
