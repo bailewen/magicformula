@@ -116,13 +116,13 @@ def fmp_get(path: str, params: Optional[Dict[str, Any]] = None, retries: int = 3
 
 # -------------------- Data pulling --------------------
 
-def list_symbols(ex: str, min_mcap: float = 50e6) -> List[Dict[str, Any]]:
+def list_symbols(ex: str, min_mcap: float = 50e6, countries: List[str] = None) -> List[Dict[str, Any]]:
     """Return only active US common stocks above min_mcap."""
+    
     rows = fmp_get(
     "/stock-screener",
     {
         "exchange": ex,
-        "country": "US",
         "isEtf": False,
         "isFund": False,
         "isActivelyTrading": True,
@@ -139,7 +139,7 @@ def list_symbols(ex: str, min_mcap: float = 50e6) -> List[Dict[str, Any]]:
         if (
             sym
             and isinstance(sym, str)
-            and r.get("country") == "US"
+            and (countries is None or r.get("country") in countries)
             and not any(sym.endswith(x) for x in ("WT", "WS", "PR"))
             and sym.isalpha()
             and len(sym) <= 5
@@ -188,10 +188,13 @@ def pull_company(symbol: str) -> Optional[Dict[str, Any]]:
         prof = fmp_profile(symbol)
         if not prof:
             return None
-        # Keep only US companies
+"""
+     # Keep only US companies
         if prof.get("country") != "US":
             return None
-
+"""
+# Country filter handled in list_symbols
+     
         # Exclude sectors
         if prof.get("sector") in EXCLUDE_SECTORS:
             return None
