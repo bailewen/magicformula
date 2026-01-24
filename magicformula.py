@@ -141,6 +141,7 @@ def list_symbols(ex: str, min_mcap: float = 50e6, countries: List[str] = None) -
             and isinstance(sym, str)
             and (countries is None or r.get("country") in countries)
             and not any(sym.endswith(x) for x in ("WT", "WS", "PR"))
+            and "-" not in sym
             and sym.isalpha()
             and len(sym) <= 5
             and mcap >= min_mcap
