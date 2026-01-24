@@ -37,23 +37,23 @@ with st.sidebar:
     with col1:
         st.markdown("**Tier 1**")
         us = st.checkbox("🇺🇸 USA", value=True)
-        sg = st.checkbox("🇸🇬 Singapore", value=False)
+        sg = st.checkbox("🇸🇬 SGP", value=False)
         uk = st.checkbox("🇬🇧 GBR", value=False)
-        ca = st.checkbox("🇨🇦 Canada", value=False)
+        ca = st.checkbox("🇨🇦 CAN", value=False)
         
     with col2:
         st.markdown("**Tier 2**")
-        au = st.checkbox("🇦🇺 Australia", value=False)
-        de = st.checkbox("🇩🇪 Germany", value=False)
-        fr = st.checkbox("🇫🇷 France", value=False)
-        jp = st.checkbox("🇯🇵 Japan", value=False)
+        au = st.checkbox("🇦🇺 AUS", value=False)
+        de = st.checkbox("🇩🇪 DEU", value=False)
+        fr = st.checkbox("🇫🇷 FRA", value=False)
+        jp = st.checkbox("🇯🇵 JPN", value=False)
         
     with col3:
         st.markdown("**Tier 3**")
-        hk = st.checkbox("🇭🇰 Hong Kong", value=False)
-        kr = st.checkbox("🇰🇷 South Korea", value=False)
-        in_market = st.checkbox("🇮🇳 India", value=False)
-        cn = st.checkbox("🇨🇳 China", value=False)
+        hk = st.checkbox("🇭🇰 HKG", value=False)
+        kr = st.checkbox("🇰🇷 KOR", value=False)
+        in_market = st.checkbox("🇮🇳 IND", value=False)
+        cn = st.checkbox("🇨🇳 CHN", value=False)
     
     
     min_mcap = st.number_input(
