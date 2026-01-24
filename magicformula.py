@@ -189,7 +189,7 @@ def pull_company(symbol: str) -> Optional[Dict[str, Any]]:
         if not prof:
             return None
 
-# Country filter handled in list_symbols
+        # Country filter handled in list_symbols
      
         # Exclude sectors
         if prof.get("sector") in EXCLUDE_SECTORS:
