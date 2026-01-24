@@ -1,0 +1,403 @@
+#!/usr/bin/env python3
+"""
+Magic Formula (Joel Greenblatt) — FMB
+ edition
+-------------------------------------------------
+This code uses Financial Modeling Prep (FMP).
+Starter Annual Plan
+
+Requirements (Manjaro/Arch):
+  python -m venv venv && source venv/bin/activate
+  pip install requests pandas numpy tqdm
+
+Environment:
+  export FMP_API_KEY="YOUR_KEY"
+
+Notes:
+- Symbols are pulled per‑exchange via `/stock/symbol?exchange=...`.
+- Financials are pulled via standardized `/financials` (income & balance sheet).
+- Profile (market cap, country, sector) via `/stock/profile2`.
+- EY = EBIT / EV, where EV = marketCap + totalDebt - cashAndCashEquivalents
+- ROC = EBIT / (NWC + Net Fixed Assets)
+    NWC = totalCurrentAssets - totalCurrentLiabilities
+    Net Fixed = propertyPlantEquipmentNet
+- Excludes financials & utilities.
+
+Caveats:
+- Field names from FMP standardized statements can differ slightly
+  by market/time. Fallback helpers are included.
+
+Run:
+ python magicformula.2.0.py --ex NASDAQ,NYSE,AMEX --top 30 --min-mcap 5e7 --limit 400
+ 
+ 2.0 cleaned up referrences to Finnhub & adapted rate limits to FMP paid tier, added parameters to fmp_get() to filter for only actual stocks
+2.2 switched to TTM and added debugging visibility (error messages)
+
+"""
+from __future__ import annotations
+import os, time, argparse, math
+from typing import Dict, Any, List, Optional
+import requests
+import pandas as pd
+import numpy as np
+import json
+import datetime
+import random
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+from collections import deque
+
+#---filter dataset for actual active stock 
+
+
+#---rate limiter
+class RateLimiter:
+    """Simple per-minute rate limiter."""
+    def __init__(self, calls_per_minute=300):
+        self.calls_per_minute = calls_per_minute
+        self.window = 60.0
+        self.calls = deque()
+
+    def wait(self):
+        now = time.time()
+        # pop timestamps older than 60s
+        while self.calls and now - self.calls[0] > self.window:
+            self.calls.popleft()
+        if len(self.calls) >= self.calls_per_minute:
+            sleep_for = self.window - (now - self.calls[0]) + 0.01
+            if sleep_for > 0:
+                time.sleep(sleep_for)
+        self.calls.append(time.time())
+limiter = RateLimiter(calls_per_minute=300)
+
+try:
+    from tqdm import tqdm  # progress bar (optional)
+except Exception:  # pragma: no cover
+    def tqdm(x, **k):
+        return x
+
+FMP_BASE = "https://financialmodelingprep.com/api/v3"
+FMP_KEY  = os.getenv("FMP_API_KEY", "")
+
+EXCLUDE_SECTORS = {
+    "Financial Services",
+    "Financial",
+    "Banks",
+    "Insurance",
+    "Utilities",
+    "Utility",
+    "Real Estate",
+    "Real Estate Investment Trust",
+    "REIT",}
+
+# -------------------- HTTP helpers --------------------
+
+S = requests.Session()
+S.headers.update({"User-Agent": "MagicFormulaFMB/1.0"})
+
+def fmp_get(path: str, params: Optional[Dict[str, Any]] = None, retries: int = 3, backoff: float = 0.8):
+    if params is None:
+        params = {}
+    if not FMP_KEY:
+        raise RuntimeError("FMP_API_KEY not set. export FMP_API_KEY=YOUR_KEY")
+    params = dict(params)
+    params["apikey"] = FMP_KEY
+    url = f"{FMP_BASE}{path}"
+    for a in range(retries):
+        limiter.wait()  # reuse your existing RateLimiter
+        r = S.get(url, params=params, timeout=30)
+        if r.status_code == 429:
+            time.sleep(backoff * (a + 1))
+            continue
+        r.raise_for_status()
+        return r.json()
+    raise requests.HTTPError(f"Failed after retries: {url}")
+
+
+# -------------------- Data pulling --------------------
+
+def list_symbols(ex: str, min_mcap: float = 50e6) -> List[Dict[str, Any]]:
+    """Return only active US common stocks above min_mcap."""
+    rows = fmp_get(
+    "/stock-screener",
+    {
+        "exchange": ex,
+        "country": "US",
+        "isEtf": False,
+        "isFund": False,
+        "isActivelyTrading": True,
+        "limit": 10000,
+    },
+    ) or []
+    
+    filtered = []
+    for r in rows:
+        sym = r.get("symbol")
+        mcap = r.get("marketCap") or 0
+
+        # --- filter out ETFs, funds, warrants, preferreds, SPACs, microcaps ---
+        if (
+            sym
+            and isinstance(sym, str)
+            and r.get("country") == "US"
+            and not any(sym.endswith(x) for x in ("WT", "WS", "PR"))
+            and sym.isalpha()
+            and len(sym) <= 5
+            and mcap >= min_mcap
+        ):
+            filtered.append(r)
+
+    return filtered
+
+def fmp_profile(ticker: str) -> Dict[str, Any]:
+    prof = fmp_get(f"/profile/{ticker}") or []
+    return prof[0] if isinstance(prof, list) and prof else {}
+
+
+def fmp_income(ticker: str) -> List[Dict[str, Any]]:
+    # Most recent annual first
+    return fmp_get(f"/income-statement/{ticker}", {"period": "quarter", "limit": 4}) or []
+
+def fmp_balance(ticker: str) -> List[Dict[str, Any]]:
+    return fmp_get(f"/balance-sheet-statement/{ticker}", {"period": "quarter", "limit": 1}) or []
+
+
+def _latest(items: List[Dict[str, Any]], field: str):
+    if not items:
+        return None
+    v = items[0].get(field)
+    return None if v in (None, "") else float(v)
+
+def _first_available(items: List[Dict[str, Any]], fields: List[str]):
+    if not items:
+        return None
+    for f in fields:
+        v = items[0].get(f)
+        if v not in (None, ""):
+            try:
+                return float(v)
+            except Exception:
+                return None
+    return None
+
+
+# -------------------- Field helpers --------------------
+
+def pull_company(symbol: str) -> Optional[Dict[str, Any]]:
+    try:
+        prof = fmp_profile(symbol)
+        if not prof:
+            return None
+        # Keep only US companies
+        if prof.get("country") != "US":
+            return None
+
+        # Exclude sectors
+        if prof.get("sector") in EXCLUDE_SECTORS:
+            return None
+
+        inc = fmp_income(symbol)
+        bal = fmp_balance(symbol)
+
+        # EBIT proxy (FMP uses operatingIncome)
+        #ebit = _latest(inc, "operatingIncome")
+        #ebit = sum(item.get("operatingIncome") or 0 for item in inc) if inc else None #annual reports
+
+        # TTM EBIT: sum last 4 quarters
+        if inc and len(inc) >= 4:
+            ebit = sum(q.get("operatingIncome") or 0 for q in inc[:4])
+        elif inc:
+            # Fallback: annualize if fewer than 4 quarters available
+            ebit = sum(q.get("operatingIncome") or 0 for q in inc) * (4 / len(inc))
+        else:
+            ebit = None
+
+        # Balance sheet fields
+        tca  = _latest(bal, "totalCurrentAssets")
+        tcl  = _latest(bal, "totalCurrentLiabilities")
+        ppe  = _latest(bal, "propertyPlantEquipmentNet")
+        cash = _latest(bal, "cashAndShortTermInvestments")
+        debt = _first_available(bal, ["totalDebt", "shortTermDebt", "longTermDebt"])
+
+        # Market cap from profile (FMP 'mktCap' sometimes named 'marketCap')
+        mcap = prof.get("mktCap") if prof.get("mktCap") is not None else prof.get("marketCap")
+        try:
+            mcap = float(mcap) if mcap is not None else None
+        except Exception:
+            mcap = None
+
+        #if None in (ebit, tca, tcl, ppe, cash, debt, mcap):
+        #    return None
+        # --- check for why nothing is being found ---
+        if None in (ebit, tca, tcl, ppe, cash, debt, mcap):
+            missing = []
+            if ebit is None: missing.append("ebit")
+            if tca is None: missing.append("tca")
+            if tcl is None: missing.append("tcl")
+            if ppe is None: missing.append("ppe")
+            if cash is None: missing.append("cash")
+            if debt is None: missing.append("debt")
+            if mcap is None: missing.append("mcap")
+
+            # This will tell us exactly why the TTM endpoint is failing
+            print(f"DEBUG: Skipping {symbol} -> Missing: {missing}")
+            return None
+
+
+
+        ev = mcap + debt - cash
+        """# The Gemini suggestion to deal with negative capital
+        nwc = tca - tcl #working capital = total current assets - total current liabilities
+        nwc = (tca - cash) - (tcl - debt) #don't count cash on hand as an asset, and subtract debt from capital
+        capital = nwc + ppe
+        
+        if ev <= 0:
+            return None
+        capital = max(capital, 1)
+
+        ey = ebit / ev
+        roc = ebit / capital
+        """
+
+        # The Claude suggestion
+        nwc = (tca - cash) - (tcl - debt)
+        nwc = max(nwc, 0)  # Floor NWC at zero, not the whole capital
+        capital = nwc + ppe
+
+        if ev <= 0:
+            return None
+        if capital <= 0:  # Only skip if PPE is also zero/negative (data issue)
+            return None
+
+        ey = ebit / ev
+        roc = ebit / capital
+
+        return {
+            "ticker": symbol,
+            "name": prof.get("companyName") or prof.get("company") or prof.get("symbol"),
+            "exchange": prof.get("exchangeShortName"),
+            "country": prof.get("country"),
+            "sector": prof.get("sector"),
+            "industry": prof.get("industry"),
+            "marketCap": mcap,
+            "EV": ev,
+            "EBIT": ebit,
+            "NWC": nwc,
+            "PPE_Net": ppe,
+            "Capital": capital,
+            "Cash": cash,
+            "TotalDebt": debt,
+            "EY": ey,
+            "ROC": roc,
+        }
+    except Exception:
+        return None
+
+
+CACHE_DIR = Path("cache")
+CACHE_DIR.mkdir(exist_ok=True)
+
+def pull_company_cached(symbol):
+    cache_file = CACHE_DIR / f"{symbol}.json"
+    if cache_file.exists():
+        age = time.time() - cache_file.stat().st_mtime
+        if age < 604800:  #
+            return json.loads(cache_file.read_text())
+    rec = pull_company(symbol)
+    if rec:
+        cache_file.write_text(json.dumps(rec))
+    return rec
+
+# -------------------- Ranking --------------------
+
+def magic_formula_rank(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.dropna(subset=["EY", "ROC"]).copy()
+    df["EY_rank"] = df["EY"].rank(ascending=False, method="min")
+    df["ROC_rank"] = df["ROC"].rank(ascending=False, method="min")
+    df["MF_score"] = df["EY_rank"] + df["ROC_rank"]
+    return df.sort_values(["MF_score", "EY_rank", "ROC_rank"]) 
+
+# -------------------- CLI --------------------
+
+def main():
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
+    default_name = f"magic_formula_{timestamp}.csv"
+
+    ap = argparse.ArgumentParser(description="Magic Formula screener (FMP)")
+
+    ap.add_argument("--ex", "--exchanges", dest="exchanges", type=str, default="NASDAQ,NYSE,AMEX",
+                    help="Comma‑separated FMP exchange codes (e.g., NASDAQ,NYSE,LSE)")
+    ap.add_argument("--min-mcap", type=float, default=50e6, help="Minimum market cap USD")
+    ap.add_argument("--limit", type=int, default=400, help="Max symbols to process (free‑tier friendly)")
+    ap.add_argument("--sleep", type=float, default=0.2, help="Delay between API calls to respect rate limits")
+    ap.add_argument("--top", type=int, default=30, help="How many top results to export")
+    ap.add_argument("--random", action="store_true", help="Shuffle symbols before limiting (for random sampling)")
+
+    ap.add_argument("--out", type=str, default=default_name, help="Output CSV path")
+    args = ap.parse_args()
+    
+    exchanges = [x.strip() for x in args.exchanges.split(',') if x.strip()]
+
+    # Pull symbols per exchange
+    symbols: List[str] = []
+    for ex in exchanges:
+        rows = list_symbols(ex, args.min_mcap)
+        for r in rows:
+            sym = r.get("symbol") or r.get("displaySymbol")
+            if sym:
+                symbols.append(sym)
+        time.sleep(args.sleep)
+
+    # Dedup (filtering already done in list_symbols)
+    symbols = list(dict.fromkeys(symbols))
+
+    if args.random:
+        print(f"Randomizing {len(symbols)} symbols before sampling...")
+        random.shuffle(symbols)
+
+    if args.limit and len(symbols) > args.limit:
+        symbols = symbols[:args.limit]
+    
+    # Pull company data
+    records = []
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(pull_company_cached, sym): sym for sym in symbols}
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Pulling fundamentals"):
+            rec = future.result()
+            if rec and rec.get("marketCap", 0) >= args.min_mcap:
+                records.append(rec)
+
+    if not records:
+        print("No qualifying records. Try increasing --limit or lowering --min-mcap.")
+        return
+
+    df = pd.DataFrame(records)
+    ranked = magic_formula_rank(df)
+
+    cols = [
+        "ticker","name","exchange","country","sector","industry",
+        "marketCap","EV","EBIT","NWC","PPE_Net","Capital","Cash","TotalDebt",
+        "EY","ROC","EY_rank","ROC_rank","MF_score"
+    ]
+    cols = [c for c in cols if c in ranked.columns]
+
+    out = ranked[cols].head(args.top)
+    out.to_csv(args.out, index=False)
+
+#notification when script is done 
+    try:
+        import subprocess
+        subprocess.run([
+            "notify-send",
+            "Magic Formula Scan Complete",
+            f"Successfully processed {args.limit} stocks.\nTop {args.top} results saved to {args.out}.",
+            "--icon=utilities-terminal"
+        ])
+    except Exception as e:
+        pass  # Silently fail if notify-send is missing
+
+    print("Top results saved to:", args.out)
+    print(out.to_string(index=False, max_colwidth=28))
+
+if __name__ == "__main__":
+    main()
