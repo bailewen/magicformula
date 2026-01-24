@@ -193,7 +193,7 @@ if run_button:
     
     # Select columns to display
     display_cols = [
-        "ticker", "name", "exchange", "sector", "industry",
+        "ticker", "name", "exchange", "country", "sector", "industry",
         "marketCap", "EV", "EBIT", "EY", "ROC",
         "EY_rank", "ROC_rank", "MF_score"
     ]
