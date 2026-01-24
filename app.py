@@ -104,7 +104,7 @@ with st.sidebar:
     )
     
     st.divider()
-    run_button = st.button("🚀 Run Magic Formula Scan", type="primary", use_container_width=True)
+    run_button = st.button("🚀 Run Magic Formula Scan", type="primary", width='stretch')
 
 # Main content area
 if run_button:
@@ -219,7 +219,7 @@ if run_button:
     
     st.dataframe(
         formatted_df,
-        use_container_width=True,
+        width='stretch',
         height=600
     )
     
@@ -231,7 +231,7 @@ if run_button:
         data=csv,
         file_name=f"magic_formula_{timestamp}.csv",
         mime="text/csv",
-        use_container_width=True
+        width='stretch'
     )
     
     # Summary statistics
