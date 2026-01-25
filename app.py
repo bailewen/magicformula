@@ -63,9 +63,15 @@ with st.sidebar:
 
     st.subheader("Markets")
 
-    if 'tier1_master' not in st.session_state:
-        st.session_state.tier1_master = True # Default to True
-    t1_master = st.checkbox("All Tier 1", value=st.session_state.tier1_master)   
+# 1. Define the callback function to update individual states
+    def toggle_tier1():
+        st.session_state.usa = st.session_state.all_t1
+        st.session_state.sgp = st.session_state.all_t1
+        st.session_state.gbr = st.session_state.all_t1
+        st.session_state.can = st.session_state.all_t1
+
+# 2. Master Checkbox with the callback
+    st.checkbox("All Tier 1", key="all_t1", on_change=toggle_tier1)
     
     col1, col2, col3 = st.columns(3)
     
