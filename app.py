@@ -160,6 +160,21 @@ with st.sidebar:
         value=False,
         help="Shuffle symbols before limiting (for random sampling)"
     )
+
+    st.subheader("🩺 Health Checks (Optional)")
+    
+    check_debt_revenue = st.checkbox(
+        "D/E decreasing + Revenue increasing",
+        value=False,
+        help="Require debt-to-equity ratio declining while revenue grows over 6 quarters"
+    )
+    
+    check_cashflow = st.checkbox(
+        "Cash flow exceeds net income",
+        value=False,
+        help="Require operating cash flow > net income for 8 consecutive quarters"
+    )
+
     
     st.divider()
     run_button = st.button("🚀 Run Magic Formula Scan", type="primary", width='stretch')
@@ -242,8 +257,30 @@ if run_button:
         st.write("- Increasing the scan limit")
         st.write("- Checking different exchanges")
         st.stop()
-    
+       
+    # Rank using Magic Formula
     st.success(f"✅ Found {len(records)} qualifying stocks")
+    
+    # Apply health checks if enabled
+    if check_debt_revenue or check_cashflow:
+        with st.spinner("🩺 Running health checks..."):
+            healthy_records = []
+            for rec in records:
+                health = mf.check_financial_health(
+                    rec["ticker"],
+                    check_debt_revenue=check_debt_revenue,
+                    check_cashflow_quality=check_cashflow
+                )
+                if health["passes_all"]:
+                    healthy_records.append(rec)
+            
+            filtered_count = len(records) - len(healthy_records)
+            st.info(f"🩺 Health checks filtered out {filtered_count} stocks, {len(healthy_records)} remain")
+            records = healthy_records
+    
+    if not records:
+        st.error("❌ No stocks passed health checks. Try disabling some filters.")
+        st.stop()
     
     # Rank using Magic Formula
     df = pd.DataFrame(records)
