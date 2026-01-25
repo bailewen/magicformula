@@ -1,110 +1,159 @@
 # Magic Formula Stock Screener
 
-A Streamlit web application implementing Joel Greenblatt's Magic Formula investing strategy using Financial Modeling Prep API data.
+A global stock screener implementing Joel Greenblatt's Magic Formula strategy, supporting 12 international markets.
+
+## Live Demo
+Try it now: [magicformula.streamlit.app](https://your-url-here.streamlit.app)
 
 ## Features
+- Magic Formula ranking (Earnings Yield + Return on Capital)
+- 12 global markets with quality tier ratings
+- Parallel processing (analyze 400+ stocks in minutes)
+- CSV export with full metrics
+- TTM (trailing twelve month) calculations
+- Excludes financials, utilities, REITs per Greenblatt methodology
 
-- Screen stocks from NASDAQ, NYSE, AMEX, and other exchanges
-- Filter by market capitalization
-- Rank stocks by Earnings Yield (EY) and Return on Capital (ROC)
-- Export results to CSV
-- Parallel processing with caching for faster results
-- Excludes financial services, utilities, and real estate sectors
+## Market Coverage
 
-## Magic Formula Metrics
+**Tier 1** (Highest Data Quality):
+- USA - NASDAQ, NYSE, AMEX
+- Singapore - SGX
+- United Kingdom - LSE
+- Canada - TSX
 
-- **Earnings Yield (EY)** = EBIT / Enterprise Value
-- **Return on Capital (ROC)** = EBIT / (Net Working Capital + Net Fixed Assets)
-- **Magic Formula Score** = Combined rank of EY and ROC (lower is better)
+**Tier 2** (Good Quality):
+- Australia - ASX
+- Germany - XETRA
+- France - Euronext Paris
+- Japan - TSE
 
-## Setup
+**Tier 3** (Emerging Markets):
+- Hong Kong - HKEX
+- South Korea - KRX
+- India - NSE/BSE
+- China - SSE/SZSE
 
-### Prerequisites
+## Quick Start
 
-- Python 3.8 or higher
-- Financial Modeling Prep API key (get one at https://site.financialmodelingprep.com/)
+### Option 1: Use Hosted Version (Easiest)
+1. Visit [magicformula.streamlit.app](https://your-url-here.streamlit.app)
+2. Get API key from [Financial Modeling Prep](https://financialmodelingprep.com/developer/docs/pricing) (Starter plan: $19/mo)
+3. Paste key in sidebar
+4. Run your scan
 
-### Installation
+### Option 2: Run Locally
 
-1. Clone this repository:
+**Requirements:**
+- Python 3.8+
+- FMP API key (Starter plan or higher - $19/mo)
+
+**Installation:**
 ```bash
-git clone https://github.com/YOUR_USERNAME/magic-formula-screener.git
-cd magic-formula-screener
-```
-
-2. Install dependencies:
-```bash
+git clone https://github.com/bailewen/magicformula.git
+cd magicformula
 pip install -r requirements.txt
 ```
 
-3. Set your API key:
+**Run Streamlit UI:**
 ```bash
-export FMP_API_KEY="your_api_key_here"
-```
-
-Or on Windows:
-```cmd
-set FMP_API_KEY=your_api_key_here
-```
-
-### Running Locally
-
-```bash
+export FMP_API_KEY="your_key_here"
 streamlit run app.py
 ```
 
-The app will open in your browser at `http://localhost:8501`
-
-## Usage
-
-1. **Configure Settings** in the sidebar:
-   - Select exchanges to scan
-   - Set minimum market cap filter
-   - Choose how many stocks to analyze (10-4500)
-   - Set number of top results to display
-
-2. **Run Scan**: Click the "Run Magic Formula Scan" button
-
-3. **View Results**: Browse the ranked stocks and metrics
-
-4. **Download**: Export results as CSV for further analysis
-
-## Command Line Usage
-
-You can also run the screener from the command line:
-
+**Run CLI:**
 ```bash
-python magicformula.py --ex NASDAQ,NYSE --top 30 --min-mcap 5e7 --limit 400
+python magicformula.py --ex NASDAQ,NYSE --top 30 --limit 400
 ```
 
-**Parameters:**
-- `--limit` - Controls how many stocks to screen. 400 runs fast, but the market is about 4500
-- `--ex` - Controls which exchanges (comma-separated)
-- `--top` - Controls how many picks to deliver in the results
-- `--min-mcap` - Sets a minimum market cap (use scientific notation like 5e7 for 50 million)
+## Magic Formula Methodology
 
-## Methodology
+**Earnings Yield (EY)** = EBIT / Enterprise Value
+- Measures how cheap the stock is relative to earnings
+- Higher is better (more earnings per dollar invested)
 
-Based on Joel Greenblatt's investment strategy from "The Little Book That Beats the Market":
+**Return on Capital (ROC)** = EBIT / (Net Working Capital + Net Fixed Assets)
+- Measures capital efficiency
+- Higher is better (more earnings per dollar of capital)
 
-1. Screens for US stocks above minimum market cap
-2. Excludes financial services, utilities, and real estate sectors
-3. Calculates trailing twelve month (TTM) EBIT
-4. Ranks stocks by Earnings Yield and Return on Capital
-5. Combines rankings to identify best opportunities
+**Magic Formula Score** = EY Rank + ROC Rank
+- Lower score is better
+- Finds stocks that are both cheap AND high quality
 
-## Technical Details
+### Exclusions
+Automatically excludes sectors that don't work well with the formula:
+- Financial Services (banks, insurance)
+- Utilities
+- Real Estate / REITs
 
-- Uses Financial Modeling Prep API for fundamental data
-- Implements rate limiting (300 calls/minute)
-- Caches company data for 7 days to reduce API calls
-- Parallel processing with ThreadPoolExecutor for efficiency
-- Handles negative working capital and edge cases
+## CLI Options
+```bash
+python magicformula.py \
+  --ex NASDAQ,NYSE,AMEX \  # Exchanges to scan
+  --top 30 \               # Number of results
+  --limit 400 \            # Max stocks to analyze
+  --min-mcap 50000000 \    # Minimum market cap ($50M)
+  --random                 # Randomizes symbol selection (avoids alphabetical bias with small samples)
+```
 
-## License
+## Output Example
 
-MIT License - Feel free to use and modify
+Results include:
+- **Basic Info**: Ticker, Name, Exchange, Country
+- **Fundamentals**: Market Cap, Enterprise Value, EBIT
+- **Magic Formula Metrics**: Earnings Yield, Return on Capital
+- **Rankings**: Individual ranks and combined Magic Formula score
+
+Export to CSV for further analysis or portfolio tracking.
+
+## Configuration
+
+**For local use:**
+```bash
+export FMP_API_KEY="your_key_here"
+```
+
+**For Streamlit Cloud:**
+Add to app settings > Secrets:
+```toml
+FMP_API_KEY = "your_key_here"
+```
+
+## Contributing
+
+Contributions welcome! Areas for improvement:
+- Backtesting framework
+- Portfolio tracking features
+- Better error handling
+- Additional screening criteria
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+## Learn More
+
+- [Joel Greenblatt's Magic Formula](https://www.magicformulainvesting.com/)
+- [The Little Book That Beats the Market](https://www.amazon.com/Little-Book-That-Beats-Market/dp/0471733067)
+- [FMP API Documentation](https://site.financialmodelingprep.com/developer/docs)
+- [Streamlit Documentation](https://docs.streamlit.io/)
 
 ## Disclaimer
 
-This tool is for educational and research purposes only. It is not financial advice. Always do your own research before making investment decisions.
+This tool is for educational and research purposes only. Not financial advice. 
+Past performance does not guarantee future results. Always do your own research 
+and consult with a qualified financial advisor before making investment decisions.
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- Joel Greenblatt for the Magic Formula methodology
+- Financial Modeling Prep for comprehensive market data
+- Streamlit for the excellent web framework
+- The open source community
+
+---
+
+**Built for value investors worldwide**
+
+Questions? Open an issue on GitHub
