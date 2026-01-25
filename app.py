@@ -31,6 +31,9 @@ def toggle_tier1():
         st.session_state[key] = st.session_state.all_t1
             
 with st.sidebar:
+    run_button = st.button("🚀 Run Magic Formula Scan", type="primary", use_container_width=True)
+    st.divider()
+    
     st.header("⚙️ Settings")
     
     # API Key Input
@@ -174,11 +177,7 @@ with st.sidebar:
         value=False,
         help="Require operating cash flow > net income for 8 consecutive quarters"
     )
-
-    
-    st.divider()
-    run_button = st.button("🚀 Run Magic Formula Scan", type="primary", width='stretch')
-
+ 
 # Main content area
 if run_button:
     # Check for API key
