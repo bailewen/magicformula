@@ -162,6 +162,70 @@ def fmp_income(ticker: str) -> List[Dict[str, Any]]:
 def fmp_balance(ticker: str) -> List[Dict[str, Any]]:
     return fmp_get(f"/balance-sheet-statement/{ticker}", {"period": "quarter", "limit": 1}) or []
 
+def check_financial_health(symbol: str, 
+                           check_debt_revenue: bool = False,
+                           check_cashflow_quality: bool = False,
+                           debt_revenue_quarters: int = 6,
+                           cashflow_quarters: int = 8) -> dict:
+    """
+    Optional health checks.
+    Returns dict with pass/fail for each enabled check.
+    """
+    results = {"symbol": symbol, "passes_all": True}
+    
+    # Check 1: D/E decreasing while revenue increasing
+    if check_debt_revenue:
+        try:
+            bs_data = fmp_get(f"/balance-sheet-statement/{symbol}", 
+                             {"period": "quarter", "limit": debt_revenue_quarters})
+            is_data = fmp_get(f"/income-statement/{symbol}", 
+                             {"period": "quarter", "limit": debt_revenue_quarters})
+            
+            if bs_data and is_data and len(bs_data) >= 3 and len(is_data) >= 3:
+                # Calculate D/E ratios (oldest to newest)
+                de_ratios = []
+                for q in reversed(bs_data):
+                    equity = q.get("totalStockholdersEquity") or 0
+                    debt = q.get("totalDebt") or 0
+                    de_ratios.append(debt / equity if equity > 0 else float('inf'))
+                
+                revenues = [q.get("revenue") or 0 for q in reversed(is_data)]
+                
+                # Check trend: D/E should trend down, revenue should trend up
+                de_decreasing = all(de_ratios[i] >= de_ratios[i+1] for i in range(len(de_ratios)-1))
+                rev_increasing = all(revenues[i] <= revenues[i+1] for i in range(len(revenues)-1))
+                
+                results["debt_revenue_check"] = de_decreasing and rev_increasing
+            else:
+                results["debt_revenue_check"] = None  # Insufficient data
+        except Exception:
+            results["debt_revenue_check"] = None
+        
+        if results.get("debt_revenue_check") is False:
+            results["passes_all"] = False
+    
+    # Check 2: OCF > Net Income for consecutive quarters
+    if check_cashflow_quality:
+        try:
+            cf_data = fmp_get(f"/cash-flow-statement/{symbol}", 
+                             {"period": "quarter", "limit": cashflow_quarters})
+            
+            if cf_data and len(cf_data) >= 4:
+                ocf_beats_ni = all(
+                    (q.get("operatingCashFlow") or 0) > (q.get("netIncome") or 0)
+                    for q in cf_data
+                )
+                results["cashflow_quality_check"] = ocf_beats_ni
+            else:
+                results["cashflow_quality_check"] = None
+        except Exception:
+            results["cashflow_quality_check"] = None
+        
+        if results.get("cashflow_quality_check") is False:
+            results["passes_all"] = False
+    
+    return results
+
 
 def _latest(items: List[Dict[str, Any]], field: str):
     if not items:
