@@ -63,15 +63,17 @@ with st.sidebar:
 
     st.subheader("Markets")
 
-# 1. Define the callback function to update individual states
+# Initialize session state
     def toggle_tier1():
-        st.session_state.usa = st.session_state.all_t1
-        st.session_state.sgp = st.session_state.all_t1
-        st.session_state.gbr = st.session_state.all_t1
-        st.session_state.can = st.session_state.all_t1
-
-# 2. Master Checkbox with the callback
-    st.checkbox("All Tier 1", key="all_t1", on_change=toggle_tier1)
+        st.session_state.usa = True
+        st.session_state.sgp = False
+        st.session_state.gbr = False
+        st.session_state.can = False 
+        st.session_state.all_t1 = False
+# add toggle (checkbox)
+    def toggle_tier1(): 
+        for key in ["usa", "sgp", "gbr", "can"]: 
+            st.session_state[key] = st.session_state.all_t1
     
     col1, col2, col3 = st.columns(3)
     
