@@ -267,6 +267,33 @@ if run_button:
         width='stretch',
         height=600
     )
+
+import plotly.express as px
+    st.subheader("📊 Visual Analysis")
+    
+    # We use final_df (the raw numbers) rather than formatted_df (the strings) 
+    # so Plotly can actually plot the numeric values correctly.
+    fig = px.scatter(
+        final_df, 
+        x="EY", 
+        y="ROC", 
+        text="ticker", 
+        size="marketCap", 
+        color="sector",
+        hover_name="name",
+        labels={"EY": "Earnings Yield (Cheapness)", "ROC": "Return on Capital (Quality)"},
+        title="Magic Formula Frontier: Quality vs. Value"
+    )
+    
+    # Clean up the chart appearance
+    fig.update_traces(textposition='top center')
+    st.plotly_chart(fig, use_container_width=True)
+    # -----------------------------------
+
+    # Download button
+    csv = final_df.to_csv(index=False).encode('utf-8')
+
+
     
     # Download button
     csv = final_df.to_csv(index=False).encode('utf-8')
