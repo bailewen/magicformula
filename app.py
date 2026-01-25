@@ -31,9 +31,7 @@ def toggle_tier1():
         st.session_state[key] = st.session_state.all_t1
             
 with st.sidebar:
-    run_button = st.button("🚀 Run Magic Formula Scan", type="primary", use_container_width=True)
-    st.divider()
-    
+   
     st.header("⚙️ Settings")
     
     # API Key Input
@@ -58,9 +56,13 @@ with st.sidebar:
             st.stop()
     
     # Set the API key as environment variable so magicformula.py can use it
+    # Set the API key as environment variable so magicformula.py can use it
     os.environ["FMP_API_KEY"] = api_key_input
     
+    run_button = st.button("🚀 Run Magic Formula Scan", type="primary", use_container_width=True)
+    
     st.divider()
+    
     
     # Exchange Selection
     exchanges = st.text_input(
