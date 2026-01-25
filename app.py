@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import sys
 import os
+import plotly.express as px
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Add current directory to Python path
@@ -268,7 +269,6 @@ if run_button:
         height=600
     )
 
-import plotly.express as px
     st.subheader("📊 Visual Analysis")
     
     # We use final_df (the raw numbers) rather than formatted_df (the strings) 
