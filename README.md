@@ -3,7 +3,8 @@
 A global stock screener implementing Joel Greenblatt's Magic Formula strategy, supporting 12 international markets.
 
 ## Live Demo
-Try it now: [magicformula.streamlit.app](https://your-url-here.streamlit.app)
+Try it now: [magicformula.streamlit.app](https://magicformula-8gnumsrdgvqn2bsz96ym9d.streamlit.app/)
+
 
 ## Features
 - Magic Formula ranking (Earnings Yield + Return on Capital)
