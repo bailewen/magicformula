@@ -163,10 +163,10 @@ def fmp_balance(ticker: str) -> List[Dict[str, Any]]:
     return fmp_get(f"/balance-sheet-statement/{ticker}", {"period": "quarter", "limit": 1}) or []
 
 def check_financial_health(symbol: str, 
-                           check_debt_revenue: bool = False,
-                           check_cashflow_quality: bool = False,
-                           debt_revenue_quarters: int = 6,
-                           cashflow_quarters: int = 8) -> dict:
+    check_debt_revenue: bool = False,
+    check_cashflow_quality: bool = False,
+    debt_revenue_quarters: int = 6,
+    cashflow_quarters: int = 8) -> dict:
     """
     Optional health checks.
     Returns dict with pass/fail for each enabled check.
