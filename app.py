@@ -54,10 +54,12 @@ with st.sidebar:
     st.divider()
     
     # Exchange Selection
-    exchanges = st.text_input()
-
-    
-    
+    exchanges = st.text_input(
+            "Exchanges (comma-separated)", 
+            value="NASDAQ,NYSE,AMEX",
+            help="FMP exchange codes like NASDAQ, NYSE, AMEX, LSE"
+)
+        
     exchanges = st.text_input(
         "Exchanges (comma-separated)", 
         value="NASDAQ,NYSE,AMEX",
