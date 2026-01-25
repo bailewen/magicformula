@@ -59,12 +59,7 @@ with st.sidebar:
             value="NASDAQ,NYSE,AMEX",
             help="FMP exchange codes like NASDAQ, NYSE, AMEX, LSE"
 )
-        
-    exchanges = st.text_input(
-        "Exchanges (comma-separated)", 
-        value="NASDAQ,NYSE,AMEX",
-        help="FMP exchange codes like NASDAQ, NYSE, AMEX, LSE"
-    )
+
     st.subheader("Markets")
     col1, col2, col3 = st.columns(3)
     
