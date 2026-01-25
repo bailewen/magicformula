@@ -75,12 +75,12 @@ with st.sidebar:
     
     col1, col2, col3 = st.columns(3)
     
-    with col1:
+with col1:
         st.markdown("**Tier 1**")
-        us = st.checkbox("🇺🇸 USA", value=True)
-        sg = st.checkbox("🇸🇬 SGP", value=False)
-        uk = st.checkbox("🇬🇧 GBR", value=False)
-        ca = st.checkbox("🇨🇦 CAN", value=False)
+        us = st.checkbox("🇺🇸 USA", value=True, key="usa")
+        sg = st.checkbox("🇸🇬 SGP", value=False, key="sgp")
+        uk = st.checkbox("🇬🇧 GBR", value=False, key="gbr")
+        ca = st.checkbox("🇨🇦 CAN", value=False, key="can")
         
     with col2:
         st.markdown("**Tier 2**")
