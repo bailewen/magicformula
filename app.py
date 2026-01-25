@@ -54,7 +54,7 @@ with st.sidebar:
     st.divider()
     
     # Exchange Selection
-    exchanges = st.text_input(
+    exchanges = st.text_input()
 
     
     
