@@ -23,8 +23,13 @@ st.set_page_config(
 st.title("📈 Magic Formula Stock Picker")
 st.write("Based on Joel Greenblatt's strategy using Financial Modeling Prep data.")
 
-# Sidebar for settings
+# Sidebar for settings 
 
+# add toggle (checkbox)
+def toggle_tier1(): 
+    for key in ["usa", "sgp", "gbr", "can"]: 
+        st.session_state[key] = st.session_state.all_t1
+            
 with st.sidebar:
     st.header("⚙️ Settings")
     
@@ -62,8 +67,7 @@ with st.sidebar:
 )
 
     st.subheader("Markets")
-
-    # add toggle (checkbox)
+    
     st.checkbox( 
         "Select all Tier 1", 
         key="all_t1", 
