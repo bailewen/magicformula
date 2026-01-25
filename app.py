@@ -62,6 +62,11 @@ with st.sidebar:
 )
 
     st.subheader("Markets")
+
+    if 'tier1_master' not in st.session_state:
+        st.session_state.tier1_master = True # Default to True
+    t1_master = st.checkbox("All Tier 1", value=st.session_state.tier1_master)   
+    
     col1, col2, col3 = st.columns(3)
     
     with col1:
