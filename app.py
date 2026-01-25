@@ -23,8 +23,40 @@ st.title("📈 Magic Formula Stock Picker")
 st.write("Based on Joel Greenblatt's strategy using Financial Modeling Prep data.")
 
 # Sidebar for settings
+
 with st.sidebar:
     st.header("⚙️ Settings")
+    
+    # API Key Input
+    st.subheader("🔑 API Configuration")
+    
+    # Check if running with environment variable already set
+    if os.getenv("FMP_API_KEY"):
+        api_key_input = os.getenv("FMP_API_KEY")
+        st.success("✅ API key loaded from environment")
+    else:
+        # Show input field for users without env var
+        api_key_input = st.text_input(
+            "FMP API Key",
+            type="password",
+            help="Get your API key at financialmodelingprep.com"
+        )
+        
+        if not api_key_input:
+            st.warning("⚠️ Please enter your FMP API key to use the screener")
+            st.info("👉 Get an API key at [financialmodelingprep.com](https://financialmodelingprep.com/developer/docs/pricing)")
+            st.markdown("**Required:** Starter plan or higher ($19/mo)")
+            st.stop()
+    
+    # Set the API key as environment variable so magicformula.py can use it
+    os.environ["FMP_API_KEY"] = api_key_input
+    
+    st.divider()
+    
+    # Exchange Selection
+    exchanges = st.text_input(
+
+    
     
     exchanges = st.text_input(
         "Exchanges (comma-separated)", 
