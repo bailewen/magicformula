@@ -63,17 +63,12 @@ with st.sidebar:
 
     st.subheader("Markets")
 
-# Initialize session state
-    def toggle_tier1():
-        st.session_state.usa = True
-        st.session_state.sgp = False
-        st.session_state.gbr = False
-        st.session_state.can = False 
-        st.session_state.all_t1 = False
-# add toggle (checkbox)
-    def toggle_tier1(): 
-        for key in ["usa", "sgp", "gbr", "can"]: 
-            st.session_state[key] = st.session_state.all_t1
+    # add toggle (checkbox)
+    st.checkbox( 
+        "Select all Tier 1", 
+        key="all_t1", 
+        on_change=toggle_tier1 
+    )
     
     col1, col2, col3 = st.columns(3)
     
