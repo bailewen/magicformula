@@ -339,6 +339,14 @@ def pull_company(symbol: str) -> Optional[Dict[str, Any]]:
         ey = ebit / ev
         roc = ebit / capital
 
+        # Sanity filters
+        if roc > 1.0:  # Cap ROC at 100%
+            roc = 1.0
+        if ey > 0.5:  # Flag: EY > 50% is usually data error
+            return None
+        if capital < 10e6:  # Require minimum $10M capital base
+            return None
+
         return {
             "ticker": symbol,
             "name": prof.get("companyName") or prof.get("company") or prof.get("symbol"),
