@@ -230,7 +230,7 @@ if run_button:
     status_text = st.empty()
     
     # Use ThreadPoolExecutor for parallel processing (like your CLI version)
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {executor.submit(mf.pull_company_cached, sym): sym for sym in all_symbols}
         
         completed = 0
