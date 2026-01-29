@@ -83,24 +83,24 @@ with st.sidebar:
     
     with col1:
         st.markdown("**Tier 1**")
-        us = st.checkbox("🇺🇸 USA", value=True, key="usa")
-        sg = st.checkbox("🇸🇬 SGP", value=False, key="sgp")
-        uk = st.checkbox("🇬🇧 GBR", value=False, key="gbr")
-        ca = st.checkbox("🇨🇦 CAN", value=False, key="can")
+        us = st.checkbox("USA", value=True, key="usa")
+        sg = st.checkbox("SGP", value=False, key="sgp")
+        uk = st.checkbox("GBR", value=False, key="gbr")
+        ca = st.checkbox("CAN", value=False, key="can")
         
     with col2:
         st.markdown("**Tier 2**")
-        au = st.checkbox("🇦🇺 AUS", value=False)
-        de = st.checkbox("🇩🇪 DEU", value=False)
-        fr = st.checkbox("🇫🇷 FRA", value=False)
-        jp = st.checkbox("🇯🇵 JPN", value=False)
+        au = st.checkbox("AUS", value=False)
+        de = st.checkbox("DEU", value=False)
+        fr = st.checkbox("FRA", value=False)
+        jp = st.checkbox("JPN", value=False)
         
     with col3:
         st.markdown("**Tier 3**")
-        hk = st.checkbox("🇭🇰 HKG", value=False)
-        kr = st.checkbox("🇰🇷 KOR", value=False)
-        in_market = st.checkbox("🇮🇳 IND", value=False)
-        cn = st.checkbox("🇨🇳 CHN", value=False)
+        hk = st.checkbox("HKG", value=False)
+        kr = st.checkbox("KOR", value=False)
+        in_market = st.checkbox("IND", value=False)
+        cn = st.checkbox("CHN", value=False)
     
 # Build countries list
     selected_countries = []
