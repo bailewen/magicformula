@@ -99,7 +99,7 @@ def fmp_get(path: str, params: Optional[Dict[str, Any]] = None, retries: int = 3
     if params is None:
         params = {}
 
-api_key = os.getenv("FMP_API_KEY", "")
+    api_key = os.getenv("FMP_API_KEY", "")
     if not api_key:
         raise RuntimeError("FMP_API_KEY not set. export FMP_API_KEY=YOUR_KEY")
  
