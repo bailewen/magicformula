@@ -104,18 +104,18 @@ with st.sidebar:
     
 # Build countries list
     selected_countries = []
-    if us: selected_countries.append("US")
-    if sg: selected_countries.append("SG")
-    if uk: selected_countries.append("GB")
-    if ca: selected_countries.append("CA")
-    if au: selected_countries.append("AU")
-    if de: selected_countries.append("DE")
-    if fr: selected_countries.append("FR")
-    if jp: selected_countries.append("JP")
-    if hk: selected_countries.append("HK")
-    if kr: selected_countries.append("KR")
-    if in_market: selected_countries.append("IN")
-    if cn: selected_countries.append("CN")
+    if us: selected_countries.append("USA")
+    if sg: selected_countries.append("SGP")
+    if uk: selected_countries.append("GBR")
+    if ca: selected_countries.append("CAN")
+    if au: selected_countries.append("AUS")
+    if de: selected_countries.append("DEU")
+    if fr: selected_countries.append("FRA")
+    if jp: selected_countries.append("JPN")
+    if hk: selected_countries.append("HKG")
+    if kr: selected_countries.append("KOR")
+    if in_market: selected_countries.append("IND")
+    if cn: selected_countries.append("CHN")
     
     if not selected_countries:
         st.warning("⚠️ Please select at least one market")
