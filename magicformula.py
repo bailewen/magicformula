@@ -434,13 +434,12 @@ def main():
         symbols = symbols[:args.limit]
     
     # Pull company data
+
     records = []
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(pull_company_cached, sym): sym for sym in symbols}
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Pulling fundamentals"):
-            rec = future.result()
-            if rec and rec.get("marketCap", 0) >= args.min_mcap:
-                records.append(rec)
+    for sym in tqdm(symbols, desc="Pulling fundamentals"):
+        rec = pull_company_cached(sym)
+        if rec and rec.get("marketCap", 0) >= args.min_mcap:
+            records.append(rec)
 
     if not records:
         print("No qualifying records. Try increasing --limit or lowering --min-mcap.")
