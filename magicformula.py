@@ -98,10 +98,13 @@ S.headers.update({"User-Agent": "MagicFormulaFMB/1.0"})
 def fmp_get(path: str, params: Optional[Dict[str, Any]] = None, retries: int = 3, backoff: float = 0.8):
     if params is None:
         params = {}
-    if not FMP_KEY:
+
+api_key = os.getenv("FMP_API_KEY", "")
+    if not api_key:
         raise RuntimeError("FMP_API_KEY not set. export FMP_API_KEY=YOUR_KEY")
+ 
     params = dict(params)
-    params["apikey"] = FMP_KEY
+    params["apikey"] = api_key
     url = f"{FMP_BASE}{path}"
     for a in range(retries):
         limiter.wait()  # reuse your existing RateLimiter
