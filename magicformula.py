@@ -376,7 +376,7 @@ def pull_company_cached(symbol):
     cache_file = CACHE_DIR / f"{symbol}.json"
     if cache_file.exists():
         age = time.time() - cache_file.stat().st_mtime
-        if age < 604800:  #
+        if age < 0:  #
             return json.loads(cache_file.read_text())
     rec = pull_company(symbol)
     if rec:
