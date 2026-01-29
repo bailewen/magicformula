@@ -314,7 +314,7 @@ def pull_company(symbol: str) -> Optional[Dict[str, Any]]:
 
         ev = mcap + debt - cash
         """# The Gemini suggestion to deal with negative capital
-        nwc = tca - tcl #working capital = total current assets - total current liabilities
+        # nwc = tca - tcl #working capital = total current assets - total current liabilities
         nwc = (tca - cash) - (tcl - debt) #don't count cash on hand as an asset, and subtract debt from capital
         capital = nwc + ppe
         
