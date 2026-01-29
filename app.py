@@ -27,8 +27,9 @@ st.write("Based on Joel Greenblatt's strategy using Financial Modeling Prep data
 
 # add toggle (checkbox)
 def toggle_tier1(): 
-    for key in ["usa", "sgp", "gbr", "can"]: 
-        st.session_state[key] = st.session_state.all_t1
+    if "all_t1" in st.session_state:
+        for key in ["usa", "sgp", "gbr", "can"]: 
+            st.session_state[key] = st.session_state.all_t1
             
 with st.sidebar:
    
