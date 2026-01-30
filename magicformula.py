@@ -46,6 +46,7 @@ import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from collections import deque
+from datetime import timedelta
 
 #---filter dataset for actual active stock 
 
@@ -158,8 +159,9 @@ def fmp_profile(ticker: str) -> Dict[str, Any]:
     return prof[0] if isinstance(prof, list) and prof else {}
 
 
-def fmp_income(ticker: str) -> List[Dict[str, Any]]:
-    # Most recent annual first
+def fmp_income(ticker: str, annual: bool = False) -> List[Dict[str, Any]]:
+    if annual:
+        return fmp_get(f"/income-statement/{ticker}", {"period": "annual", "limit": 1}) or []
     return fmp_get(f"/income-statement/{ticker}", {"period": "quarter", "limit": 4}) or []
 
 def fmp_balance(ticker: str) -> List[Dict[str, Any]]:
@@ -251,7 +253,8 @@ def _first_available(items: List[Dict[str, Any]], fields: List[str]):
 
 # -------------------- Field helpers --------------------
 
-def pull_company(symbol: str) -> Optional[Dict[str, Any]]:
+def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
+ 
     try:
         prof = fmp_profile(symbol)
         if not prof:
@@ -263,7 +266,7 @@ def pull_company(symbol: str) -> Optional[Dict[str, Any]]:
         if prof.get("sector") in EXCLUDE_SECTORS:
             return None
 
-        inc = fmp_income(symbol)
+        inc = fmp_income(symbol, annual)
         bal = fmp_balance(symbol)
 
         # EBIT proxy (FMP uses operatingIncome)
@@ -372,13 +375,13 @@ def pull_company(symbol: str) -> Optional[Dict[str, Any]]:
 CACHE_DIR = Path("cache")
 CACHE_DIR.mkdir(exist_ok=True)
 
-def pull_company_cached(symbol):
+def pull_company_cached(symbol, annual=False):
     cache_file = CACHE_DIR / f"{symbol}.json"
     if cache_file.exists():
         age = time.time() - cache_file.stat().st_mtime
-        if age < 604800:  #
+        if age < timedelta(days=7).total_seconds():
             return json.loads(cache_file.read_text())
-    rec = pull_company(symbol)
+    rec = pull_company(symbol, annual)
     if rec:
         cache_file.write_text(json.dumps(rec))
     return rec
@@ -411,16 +414,27 @@ def main():
                 help="Comma-separated country codes (e.g., US,CA,GB). Default: US")
     ap.add_argument("--tier1", action="store_true",
                 help="Use Tier 1 markets: US, SG, GB, CA")
-
     ap.add_argument("--out", type=str, default=default_name, help="Output CSV path")
+    ap.add_argument("--annual", action="store_true",
+                help="Use annual data instead of TTM quarterly")
+
     args = ap.parse_args()
-    
+
+ # Parse countries
+    if args.tier1:
+        countries = ["US", "SG", "GB", "CA"]
+    elif args.countries:
+        countries = [c.strip() for c in args.countries.split(',')]
+    else:
+        countries = ["US"]  # Default to US only
+
+ 
     exchanges = [x.strip() for x in args.exchanges.split(',') if x.strip()]
 
     # Pull symbols per exchange
     symbols: List[str] = []
     for ex in exchanges:
-        rows = list_symbols(ex, args.min_mcap)
+        rows = list_symbols(ex, args.min_mcap, countries)
         for r in rows:
             sym = r.get("symbol") or r.get("displaySymbol")
             if sym:
