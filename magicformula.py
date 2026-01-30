@@ -407,6 +407,10 @@ def main():
     ap.add_argument("--sleep", type=float, default=0.2, help="Delay between API calls to respect rate limits")
     ap.add_argument("--top", type=int, default=30, help="How many top results to export")
     ap.add_argument("--random", action="store_true", help="Shuffle symbols before limiting (for random sampling)")
+    ap.add_argument("--countries", type=str, default=None,
+                help="Comma-separated country codes (e.g., US,CA,GB). Default: US")
+    ap.add_argument("--tier1", action="store_true",
+                help="Use Tier 1 markets: US, SG, GB, CA")
 
     ap.add_argument("--out", type=str, default=default_name, help="Output CSV path")
     args = ap.parse_args()
