@@ -277,16 +277,7 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
         # EBIT proxy (FMP uses operatingIncome)
         #ebit = _latest(inc, "operatingIncome")
         #ebit = sum(item.get("operatingIncome") or 0 for item in inc) if inc else None #annual reports
-
-        # TTM EBIT: sum last 4 quarters
-        if inc and len(inc) >= 4:
-            ebit = sum(q.get("operatingIncome") or 0 for q in inc[:4])
-        elif inc:
-            # Fallback: annualize if fewer than 4 quarters available
-            ebit = sum(q.get("operatingIncome") or 0 for q in inc) * (4 / len(inc))
-        else:
-            ebit = None
-         
+       
         # EBIT calculation
         if annual:
             ebit = _latest(inc, "operatingIncome")
