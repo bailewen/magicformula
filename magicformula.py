@@ -281,6 +281,17 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
             ebit = sum(q.get("operatingIncome") or 0 for q in inc) * (4 / len(inc))
         else:
             ebit = None
+         
+        # EBIT calculation
+        if annual:
+            ebit = _latest(inc, "operatingIncome")
+        elif inc and len(inc) >= 4:
+            ebit = sum(q.get("operatingIncome") or 0 for q in inc[:4])
+        elif inc:
+            ebit = sum(q.get("operatingIncome") or 0 for q in inc) * (4 / len(inc))
+        else:
+            ebit = None
+     
 
         # Balance sheet fields
         tca  = _latest(bal, "totalCurrentAssets")
@@ -455,7 +466,7 @@ def main():
 
     records = []
     for sym in tqdm(symbols, desc="Pulling fundamentals"):
-        rec = pull_company_cached(sym)
+        rec = pull_company_cached(sym, args.annual)
         if rec and rec.get("marketCap", 0) >= args.min_mcap:
             records.append(rec)
 
