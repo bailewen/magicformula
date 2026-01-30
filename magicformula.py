@@ -266,6 +266,11 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
         if prof.get("sector") in EXCLUDE_SECTORS:
             return None
 
+        # Skip preferred shares and duplicate share classes
+        name = prof.get("companyName", "").lower()
+        if any(x in name for x in ["preferred", "perpetual", "series a", "series b"]):
+            return None
+     
         inc = fmp_income(symbol, annual)
         bal = fmp_balance(symbol)
 
