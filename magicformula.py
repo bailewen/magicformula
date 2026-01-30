@@ -387,7 +387,8 @@ CACHE_DIR = Path("cache")
 CACHE_DIR.mkdir(exist_ok=True)
 
 def pull_company_cached(symbol, annual=False):
-    cache_file = CACHE_DIR / f"{symbol}.json"
+    suffix = "_annual" if annual else "_ttm"
+    cache_file = CACHE_DIR / f"{symbol}{suffix}.json"
     if cache_file.exists():
         age = time.time() - cache_file.stat().st_mtime
         if age < timedelta(days=7).total_seconds():
