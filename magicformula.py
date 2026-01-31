@@ -461,7 +461,7 @@ def main():
         symbols = symbols[:args.limit]
     
     # Pull company data
-
+ 
     records = []
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {executor.submit(pull_company_cached, sym, args.annual): sym for sym in symbols}
