@@ -406,6 +406,7 @@ def magic_formula_rank(df: pd.DataFrame) -> pd.DataFrame:
 # -------------------- CLI --------------------
 
 def main():
+    start_time = time.time()
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
     default_name = f"magic_formula_{timestamp}.csv"
 
@@ -498,6 +499,11 @@ def main():
 
     print("Top results saved to:", args.out)
     print(out.to_string(index=False, max_colwidth=28))
+ 
+    elapsed = time.time() - start_time
+    minutes, seconds = divmod(int(elapsed), 60)
+    print(f"Completed in {minutes}m {seconds}s")
 
-if __name__ == "__main__":
+ 
+if __name__ == "__main__": 
     main()
