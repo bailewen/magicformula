@@ -400,7 +400,7 @@ def pull_company_cached(symbol, annual=False):
         if age < timedelta(days=7).total_seconds():
             return json.loads(cache_file.read_text())
     rec = pull_company(symbol, annual)
-    if rec:
+    if rec and rec.get("type") == "success":  # Only cache successful records
         cache_file.write_text(json.dumps(rec))
     return rec
 
@@ -472,14 +472,24 @@ def main():
     
     # Pull company data
  
+    # Pull company data
+ 
     records = []
+    skipped = []
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {executor.submit(pull_company_cached, sym, args.annual): sym for sym in symbols}
         for future in tqdm(as_completed(futures), total=len(futures), desc="Pulling fundamentals"):
             try:
                 rec = future.result(timeout=30)
-                if rec and rec.get("marketCap", 0) >= args.min_mcap:
-                    records.append(rec)
+                if rec:
+                    if rec.get("type") == "success" and rec.get("marketCap", 0) >= args.min_mcap:
+                        records.append(rec)
+                    elif rec.get("type") == "skip":
+                        skipped.append({
+                            "ticker": rec.get("ticker"),
+                            "name": rec.get("name", ""),
+                            "reason": rec.get("reason", "Unknown")
+                        })
             except Exception:
                 pass
 
@@ -499,6 +509,13 @@ def main():
 
     out = ranked[cols].head(args.top)
     out.to_csv(args.out, index=False)
+    
+# Save skipped stocks to separate CSV
+    if skipped:
+        skipped_file = args.out.replace(".csv", "_skipped.csv")
+        skipped_df = pd.DataFrame(skipped)
+        skipped_df.to_csv(skipped_file, index=False)
+        print(f"\nSkipped {len(skipped)} stocks (saved to: {skipped_file})")
 
 #notification when script is done 
     try:
@@ -506,8 +523,7 @@ def main():
         subprocess.run([
             "notify-send",
             "Magic Formula Scan Complete",
-            f"Successfully processed {args.limit} stocks.\nTop {args.top} results saved to {args.out}.",
-            "--icon=utilities-terminal"
+            f"Successfully processed {args.limit} stocks.\nTop {args.top} results saved to {args.out}.\n{len(skipped)} stocks skipped.",            "--icon=utilities-terminal"
         ])
     except Exception as e:
         pass  # Silently fail if notify-send is missing
