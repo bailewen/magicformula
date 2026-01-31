@@ -397,7 +397,7 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
                 "reason": f"Exception: {str(e)}"}
 
 
-CACHE_DIR = Path("cache")
+CACHE_DIR = Path("cache").parent / "cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
 def pull_company_cached(symbol, annual=False):
