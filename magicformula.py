@@ -462,16 +462,16 @@ def main():
     
     # Pull company data
 
-      records = []
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = {executor.submit(pull_company_cached, sym, args.annual): sym for sym in symbols}
-            for future in tqdm(as_completed(futures), total=len(futures), desc="Pulling fundamentals"):
-                try:
-                    rec = future.result(timeout=30)
-                    if rec and rec.get("marketCap", 0) >= args.min_mcap:
-                        records.append(rec)
-                except Exception:
-                    pass
+    records = []
+      with ThreadPoolExecutor(max_workers=5) as executor:
+          futures = {executor.submit(pull_company_cached, sym, args.annual): sym for sym in symbols}
+          for future in tqdm(as_completed(futures), total=len(futures), desc="Pulling fundamentals"):
+              try:
+                  rec = future.result(timeout=30)
+                  if rec and rec.get("marketCap", 0) >= args.min_mcap:
+                      records.append(rec)
+              except Exception:
+                  pass
 
     if not records:
         print("No qualifying records. Try increasing --limit or lowering --min-mcap.")
