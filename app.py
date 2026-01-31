@@ -176,6 +176,14 @@ with st.sidebar:
         value=False,
         help="Shuffle symbols before limiting (for random sampling)"
     )
+    use_annual = st.checkbox(
+        "Use Annual Data (instead of TTM)",
+        value=True,
+        help="Use annual financial data instead of trailing twelve months"
+    )
+    
+    st.divider()
+    run_button = st.button("🚀 Run Magic Formula Scan", type="primary", width='stretch')
 
     st.subheader("🩺 Health Checks (Optional)")
     
