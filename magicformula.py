@@ -350,11 +350,10 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
         if capital <= 0:
             return {"type": "skip", "ticker": symbol, "name": company_name,
                     "reason": "Negative or zero capital"}
-        
-        if capital < 10e6:  # Already have this
+        if capital < 10e6:  # Require minimum $10M capital base
             return {"type": "skip", "ticker": symbol, "name": company_name,
                     "reason": "Capital < $10M"}
-
+     
         ey = ebit / ev
         roc = ebit / capital
 
@@ -365,9 +364,7 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
         if ey > 0.5:  # Flag: EY > 50% is usually data error
             return {"type": "skip", "ticker": symbol, "name": company_name,
                     "reason": "EY > 50% (data error)"}
-        if capital < 10e6:  # Require minimum $10M capital base
-            return {"type": "skip", "ticker": symbol, "name": company_name,
-                    "reason": "Capital < $10M"}
+
 
         return {
             "type": "success",
