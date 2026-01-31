@@ -523,7 +523,8 @@ def main():
         subprocess.run([
             "notify-send",
             "Magic Formula Scan Complete",
-            f"Successfully processed {args.limit} stocks.\nTop {args.top} results saved to {args.out}.\n{len(skipped)} stocks skipped.",            "--icon=utilities-terminal"
+            f"Successfully processed {args.limit} stocks.\nTop {args.top} results saved to {args.out}.\n{len(skipped)} stocks skipped.",            
+            "--icon=utilities-terminal"
         ])
     except Exception as e:
         pass  # Silently fail if notify-send is missing
