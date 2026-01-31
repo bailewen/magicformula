@@ -269,7 +269,10 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
     try:
         prof = fmp_profile(symbol)
         if not prof:
-            return None
+            return {"type": "skip", "ticker": symbol, "name": symbol, "reason": "No profile data"}
+        # records skipped items
+
+        company_name = prof.get("companyName") or prof.get("company") or symbol
 
         # Country filter handled in list_symbols
      
@@ -298,8 +301,7 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
             ebit = sum(q.get("operatingIncome") or 0 for q in inc) * (4 / len(inc))
         else:
             ebit = None
-     
-
+          
         # Balance sheet fields
         tca  = _latest(bal, "totalCurrentAssets")
         tcl  = _latest(bal, "totalCurrentLiabilities")
@@ -329,33 +331,24 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
 
             # This will tell us exactly why the TTM endpoint is failing
             print(f"DEBUG: Skipping {symbol} -> Missing: {missing}")
-            return None
+            return {"type": "skip", "ticker": symbol, "name": company_name,
+                    "reason": f"Missing fields: {', '.join(missing)}"}
 
 
 
         ev = mcap + debt - cash
-        """# The Gemini suggestion to deal with negative capital
-        # nwc = tca - tcl #working capital = total current assets - total current liabilities
-        nwc = (tca - cash) - (tcl - debt) #don't count cash on hand as an asset, and subtract debt from capital
-        capital = nwc + ppe
-        
-        if ev <= 0:
-            return None
-        capital = max(capital, 1)
-
-        ey = ebit / ev
-        roc = ebit / capital
-        """
-
-        # The Claude suggestion
+   
+        # Deal with negative working capital
         nwc = (tca - cash) - (tcl - debt)
         nwc = max(nwc, 0)  # Floor NWC at zero, not the whole capital
         capital = nwc + ppe
 
         if ev <= 0:
-            return None
+            return {"type": "skip", "ticker": symbol, "name": company_name,
+                    "reason": "Negative or zero EV"}
         if capital <= 0:  # Only skip if PPE is also zero/negative (data issue)
-            return None
+            return {"type": "skip", "ticker": symbol, "name": company_name,
+                    "reason": "Negative or zero capital"}
 
         ey = ebit / ev
         roc = ebit / capital
@@ -363,12 +356,16 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
         # Sanity filters
         if roc > 1.0:  # Cap ROC at 100%
             roc = 1.0
+         
         if ey > 0.5:  # Flag: EY > 50% is usually data error
-            return None
+            return {"type": "skip", "ticker": symbol, "name": company_name,
+                    "reason": "EY > 50% (data error)"}
         if capital < 10e6:  # Require minimum $10M capital base
-            return None
+            return {"type": "skip", "ticker": symbol, "name": company_name,
+                    "reason": "Capital < $10M"}
 
         return {
+            "type": "success",
             "ticker": symbol,
             "name": prof.get("companyName") or prof.get("company") or prof.get("symbol"),
             "exchange": prof.get("exchangeShortName"),
@@ -386,8 +383,10 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
             "EY": ey,
             "ROC": roc,
         }
-    except Exception:
-        return None
+     #record API exceptions
+    except Exception as e:
+        return {"type": "skip", "ticker": symbol, "name": symbol,
+                "reason": f"Exception: {str(e)}"}
 
 
 CACHE_DIR = Path("cache")
