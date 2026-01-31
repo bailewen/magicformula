@@ -30,8 +30,15 @@ Caveats:
 Run:
  python magicformula.2.0.py --ex NASDAQ,NYSE,AMEX --top 30 --min-mcap 5e7 --limit 400
  
- 2.0 cleaned up referrences to Finnhub & adapted rate limits to FMP paid tier, added parameters to fmp_get() to filter for only actual stocks
+2.0 cleaned up referrences to Finnhub & adapted rate limits to FMP paid tier, added parameters to fmp_get() to filter for only actual stocks
 2.2 switched to TTM and added debugging visibility (error messages)
+
+2026-02-01: 
+- stopped numbering file name with version. Updating aliases was annoying
+- added parallel processing (ThreadPoolExecutor)
+- added -ttm flag (default is annual)
+- default countries = none (US markets only, but intl companies still included)
+- Run should report how long it took now
 
 """
 from __future__ import annotations
