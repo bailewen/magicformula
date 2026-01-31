@@ -183,8 +183,6 @@ with st.sidebar:
     )
     
     st.divider()
-    run_button = st.button("🚀 Run Magic Formula Scan", type="primary", width='stretch')
-
     st.subheader("🩺 Health Checks (Optional)")
     
     check_debt_revenue = st.checkbox(
