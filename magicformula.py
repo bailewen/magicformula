@@ -339,9 +339,15 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
         ev = mcap + debt - cash
    
         # Greenblatt's formula: standard working capital
-        nwc = tca - tcl
-        capital = nwc + ppe
+        # nwc = tca - tcl
+        # capital = nwc + ppe
+        # It gives me no matches
 
+        # Modified working capital (removes idle cash and debt from capital calculation)
+        nwc = (tca - cash) - (tcl - debt)
+        nwc = max(nwc, 0)  # Floor NWC at zero
+        capital = nwc + ppe
+     
         if ev <= 0:
             return {"type": "skip", "ticker": symbol, "name": company_name,
                     "reason": "Negative or zero EV"}
@@ -478,7 +484,7 @@ def main():
  
     records = []
     skipped = []
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=10) as executor:
         futures = {executor.submit(pull_company_cached, sym, args.annual): sym for sym in symbols}
         for future in tqdm(as_completed(futures), total=len(futures), desc="Pulling fundamentals"):
             try:
