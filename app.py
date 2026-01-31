@@ -129,7 +129,7 @@ with st.sidebar:
             st.warning("⚠️ Please select at least one market")
 
     else:
-        elected_countries = None  # All countries on selected exchanges
+        selected_countries = None  # All countries on selected exchanges
     
     min_mcap = st.number_input(
         "Min Market Cap (USD)", 
