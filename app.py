@@ -87,49 +87,49 @@ with st.sidebar:
             on_change=toggle_tier1 
         )
     
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("**Tier 1**")
-        us = st.checkbox("USA", value=True, key="usa")
-        sg = st.checkbox("SGP", value=False, key="sgp")
-        uk = st.checkbox("GBR", value=False, key="gbr")
-        ca = st.checkbox("CAN", value=False, key="can")
+        col1, col2, col3 = st.columns(3)
         
-    with col2:
-        st.markdown("**Tier 2**")
-        au = st.checkbox("AUS", value=False)
-        de = st.checkbox("DEU", value=False)
-        fr = st.checkbox("FRA", value=False)
-        jp = st.checkbox("JPN", value=False)
+        with col1:
+            st.markdown("**Tier 1**")
+            us = st.checkbox("USA", value=True, key="usa")
+            sg = st.checkbox("SGP", value=False, key="sgp")
+            uk = st.checkbox("GBR", value=False, key="gbr")
+            ca = st.checkbox("CAN", value=False, key="can")
+            
+        with col2:
+            st.markdown("**Tier 2**")
+            au = st.checkbox("AUS", value=False)
+            de = st.checkbox("DEU", value=False)
+            fr = st.checkbox("FRA", value=False)
+            jp = st.checkbox("JPN", value=False)
+            
+        with col3:
+            st.markdown("**Tier 3**")
+            hk = st.checkbox("HKG", value=False)
+            kr = st.checkbox("KOR", value=False)
+            in_market = st.checkbox("IND", value=False)
+            cn = st.checkbox("CHN", value=False)
         
-    with col3:
-        st.markdown("**Tier 3**")
-        hk = st.checkbox("HKG", value=False)
-        kr = st.checkbox("KOR", value=False)
-        in_market = st.checkbox("IND", value=False)
-        cn = st.checkbox("CHN", value=False)
-    
-# Build countries list
-    selected_countries = []
-    if us: selected_countries.append("US")
-    if sg: selected_countries.append("SG")
-    if uk: selected_countries.append("GB")
-    if ca: selected_countries.append("CA")
-    if au: selected_countries.append("AU")
-    if de: selected_countries.append("DE")
-    if fr: selected_countries.append("FR")
-    if jp: selected_countries.append("JP")
-    if hk: selected_countries.append("HK")
-    if kr: selected_countries.append("KR")
-    if in_market: selected_countries.append("IN")
-    if cn: selected_countries.append("CN")
-    
-    if not selected_countries:
-        st.warning("⚠️ Please select at least one market")
+    # Build countries list
+        selected_countries = []
+        if us: selected_countries.append("US")
+        if sg: selected_countries.append("SG")
+        if uk: selected_countries.append("GB")
+        if ca: selected_countries.append("CA")
+        if au: selected_countries.append("AU")
+        if de: selected_countries.append("DE")
+        if fr: selected_countries.append("FR")
+        if jp: selected_countries.append("JP")
+        if hk: selected_countries.append("HK")
+        if kr: selected_countries.append("KR")
+        if in_market: selected_countries.append("IN")
+        if cn: selected_countries.append("CN")
+        
+        if not selected_countries:
+            st.warning("⚠️ Please select at least one market")
 
-else:
-    elected_countries = None  # All countries on selected exchanges
+    else:
+        elected_countries = None  # All countries on selected exchanges
     
     min_mcap = st.number_input(
         "Min Market Cap (USD)", 
