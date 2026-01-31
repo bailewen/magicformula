@@ -338,17 +338,22 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
 
         ev = mcap + debt - cash
    
-        # Deal with negative working capital
-        nwc = (tca - cash) - (tcl - debt)
-        nwc = max(nwc, 0)  # Floor NWC at zero, not the whole capital
+        # Greenblatt's formula: standard working capital
+        nwc = tca - tcl
         capital = nwc + ppe
 
         if ev <= 0:
             return {"type": "skip", "ticker": symbol, "name": company_name,
                     "reason": "Negative or zero EV"}
-        if capital <= 0:  # Only skip if PPE is also zero/negative (data issue)
+         
+        # Handle edge cases
+        if capital <= 0:
             return {"type": "skip", "ticker": symbol, "name": company_name,
                     "reason": "Negative or zero capital"}
+        
+        if capital < 10e6:  # Already have this
+            return {"type": "skip", "ticker": symbol, "name": company_name,
+                    "reason": "Capital < $10M"}
 
         ey = ebit / ev
         roc = ebit / capital
