@@ -434,7 +434,7 @@ def main():
     elif args.countries:
         countries = [c.strip() for c in args.countries.split(',')]
     else:
-        countries = ["US"]  # Default to US only
+        countries = None  # All countries on US exchanges
 
  
     exchanges = [x.strip() for x in args.exchanges.split(',') if x.strip()]
