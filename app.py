@@ -193,6 +193,10 @@ with st.sidebar:
  
 # Main content area
 if run_button:
+    import time
+    start_time = time.time()
+
+    
     # Check for API key
     if not os.getenv("FMP_API_KEY"):
         st.error("❌ FMP_API_KEY environment variable not set!")
@@ -380,6 +384,11 @@ if run_button:
     with col4:
         top_score = final_df["MF_score"].iloc[0] if "MF_score" in final_df.columns and len(final_df) > 0 else 0
         st.metric("Top MF Score", f"{top_score:.0f}")
+
+    # Display scan time
+    elapsed = time.time() - start_time
+    minutes, seconds = divmod(int(elapsed), 60)
+    st.success(f"⏱️ Scan completed in {minutes}m {seconds}s")
 
 else:
     # Welcome screen
