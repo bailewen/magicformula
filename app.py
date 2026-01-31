@@ -74,11 +74,18 @@ with st.sidebar:
 
     st.subheader("Markets")
     
-    st.checkbox( 
-        "Select all Tier 1", 
-        key="all_t1", 
-        on_change=toggle_tier1 
+    filter_by_country = st.checkbox(
+        "Filter by company domicile",
+        value=False,
+        help="Off = all countries on US exchanges (Greenblatt default). On = filter by country."
     )
+    
+    if filter_by_country:
+        st.checkbox( 
+            "Select all Tier 1", 
+            key="all_t1", 
+            on_change=toggle_tier1 
+        )
     
     col1, col2, col3 = st.columns(3)
     
