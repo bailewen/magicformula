@@ -490,7 +490,7 @@ def main():
         futures = {executor.submit(pull_company_cached, sym, args.annual): sym for sym in symbols}
         for future in tqdm(as_completed(futures), total=len(futures), desc="Pulling fundamentals"):
             try:
-                rec = future.result(timeout=30)
+                rec = future.result(timeout=10)
                 if rec:
                     if rec.get("type") == "success" and rec.get("marketCap", 0) >= args.min_mcap:
                         records.append(rec)
