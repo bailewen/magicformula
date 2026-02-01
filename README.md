@@ -9,10 +9,12 @@ Try it now: [magicformula.streamlit.app](https://magicformula-8gnumsrdgvqn2bsz96
 ## Features
 - Magic Formula ranking (Earnings Yield + Return on Capital)
 - 12 global markets with quality tier ratings
-- Parallel processing (analyze 400+ stocks in minutes)
+- Parallel processing (analyze 400+ stocks in les than a minute)
+- Cached data (uncached run of full marker ~ 30 min; repeated runs ~ 5-6 min)
 - CSV export with full metrics
-- TTM (trailing twelve month) calculations
+- TTM (trailing twelve month) calculations (defaiult) with option to use annual reporst instead
 - Excludes financials, utilities, REITs per Greenblatt methodology
+- Optional health checks for extra scrutiny
 
 ## Market Coverage
 
