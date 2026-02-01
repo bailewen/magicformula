@@ -444,6 +444,8 @@ def main():
     ap.add_argument("--out", type=str, default=default_name, help="Output CSV path")
     ap.add_argument("--annual", action="store_true",
                 help="Use annual data instead of TTM quarterly")
+    ap.add_argument("--health-checks", action="store_true",
+                    help="Run D/E and cash flow health checks on top candidates")
 
     args = ap.parse_args()
 
@@ -507,6 +509,23 @@ def main():
 
     df = pd.DataFrame(records)
     ranked = magic_formula_rank(df)
+
+    # Apply health checks only to top candidates
+    if args.health_checks:
+        top_candidates = ranked.head(args.top)
+        healthy_tickers = []
+        
+        for ticker in tqdm(top_candidates["ticker"], desc="Running health checks"):
+            health = check_financial_health(
+                ticker,
+                check_debt_revenue=True,
+                check_cashflow_quality=True
+            )
+            if health["passes_all"]:
+                healthy_tickers.append(ticker)
+        
+        ranked = ranked[ranked["ticker"].isin(healthy_tickers)]
+        print(f"Health checks: {len(healthy_tickers)}/{len(top_candidates)} passed")
 
     cols = [
         "ticker","name","exchange","country","sector","industry",
