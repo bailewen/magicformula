@@ -283,30 +283,31 @@ if run_button:
     # Rank using Magic Formula
     st.success(f"✅ Found {len(records)} qualifying stocks")
     
-    # Apply health checks if enabled
+    # Rank using Magic Formula
+    df = pd.DataFrame(records)
+    ranked = mf.magic_formula_rank(df)
+    
+    # Apply health checks only to top candidates (much faster)
     if check_debt_revenue or check_cashflow:
-        with st.spinner("🩺 Running health checks..."):
-            healthy_records = []
-            for rec in records:
+        with st.spinner(f"🩺 Running health checks on top {top_n} candidates..."):
+            top_candidates = ranked.head(top_n)
+            healthy_tickers = []
+            
+            for ticker in top_candidates["ticker"]:
                 health = mf.check_financial_health(
-                    rec["ticker"],
+                    ticker,
                     check_debt_revenue=check_debt_revenue,
                     check_cashflow_quality=check_cashflow
                 )
                 if health["passes_all"]:
-                    healthy_records.append(rec)
+                    healthy_tickers.append(ticker)
             
-            filtered_count = len(records) - len(healthy_records)
-            st.info(f"🩺 Health checks filtered out {filtered_count} stocks, {len(healthy_records)} remain")
-            records = healthy_records
+            ranked = ranked[ranked["ticker"].isin(healthy_tickers)]
+            st.info(f"🩺 Health checks: {len(healthy_tickers)}/{len(top_candidates)} passed")
     
-    if not records:
+    if len(ranked) == 0:
         st.error("❌ No stocks passed health checks. Try disabling some filters.")
         st.stop()
-    
-    # Rank using Magic Formula
-    df = pd.DataFrame(records)
-    ranked = mf.magic_formula_rank(df)
     
     # Select columns to display
     display_cols = [
