@@ -262,7 +262,7 @@ if run_button:
             progress_bar.progress(completed / len(all_symbols))
             
             try:
-                rec = future.result()
+                rec = future.result(timeout=15)
                 if rec and rec.get("marketCap", 0) >= min_mcap:
                     records.append(rec)
             except Exception as e:
