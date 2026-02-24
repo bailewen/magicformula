@@ -336,7 +336,7 @@ if run_button:
     descriptions = {
         row["ticker"]: get_company_description(row["ticker"], api_key_input)
         for _, row in final_df.iterrows()
-}
+    }
 
 # Display results
 st.subheader(f"🏆 Top {top_n} Stocks by Magic Formula")
