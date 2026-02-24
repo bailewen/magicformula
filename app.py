@@ -181,7 +181,7 @@ with st.sidebar:
 
     use_random = st.checkbox(
         "Randomize symbol selection",
-        value=False,
+        value=True,
         help="Shuffle symbols before limiting (for random sampling)"
     )
     use_annual = st.checkbox(
