@@ -20,7 +20,6 @@ def get_company_description(symbol: str, api_key: str) -> str:
         pass
     return "No description available."
 
-
 # Add current directory to Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
@@ -339,7 +338,7 @@ if run_button:
     }
 
 # Display results
-st.subheader(f"🏆 Top {top_n} Stocks by Magic Formula")
+    st.subheader(f"🏆 Top {top_n} Stocks by Magic Formula")
     
     # Format numbers for better display
     formatted_df = final_df.copy()
