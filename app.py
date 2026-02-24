@@ -91,8 +91,8 @@ with st.sidebar:
     st.subheader("Markets")
     
     filter_by_country = st.checkbox(
-        "Filter by company domicile",
-        value=False,
+        "Select domiciles",
+        value=True,
         help="Off = all countries on US exchanges (Greenblatt default). On = filter by country."
     )
     
