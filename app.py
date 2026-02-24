@@ -4,6 +4,22 @@ import sys
 import os
 import plotly.express as px
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import requests
+
+@st.cache_data(ttl=86400)
+def get_company_description(symbol: str, api_key: str) -> str:
+    try:
+        url = f"https://financialmodelingprep.com/api/v3/profile/{symbol}"
+        response = requests.get(url, params={"apikey": api_key}, timeout=10)
+        data = response.json()
+        if data and isinstance(data, list):
+            desc = data[0].get("description", "")
+            sentences = desc.split(". ")
+            return ". ".join(sentences[:4]) + ("." if len(sentences) > 4 else "")
+    except Exception:
+        pass
+    return "No description available."
+
 
 # Add current directory to Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -315,12 +331,15 @@ if run_button:
         "marketCap", "EV", "EBIT", "EY", "ROC",
         "EY_rank", "ROC_rank", "MF_score"
     ]
-    display_cols = [c for c in display_cols if c in ranked.columns]
-    
     final_df = ranked[display_cols].head(top_n)
-    
-    # Display results
-    st.subheader(f"🏆 Top {top_n} Stocks by Magic Formula")
+
+    descriptions = {
+        row["ticker"]: get_company_description(row["ticker"], api_key_input)
+        for _, row in final_df.iterrows()
+}
+
+# Display results
+st.subheader(f"🏆 Top {top_n} Stocks by Magic Formula")
     
     # Format numbers for better display
     formatted_df = final_df.copy()
@@ -340,6 +359,15 @@ if run_button:
         width='stretch',
         height=600
     )
+    selected_ticker = st.selectbox(
+        "🔍 Company summary", 
+        options=[""] + list(final_df["ticker"]),
+        format_func=lambda x: "Select a ticker..." if x == "" else x
+    )
+    
+    if selected_ticker:
+        st.info(descriptions[selected_ticker])
+
 
     st.subheader("📊 Visual Analysis")
     
