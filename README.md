@@ -3,7 +3,7 @@
 A global stock screener implementing Joel Greenblatt's Magic Formula strategy, supporting 12 international markets.
 
 ## Live Demo
-Try it now: hmagic.omarbelove.com
+Try it now: [magic.omarbelove.com](https://magic.omarbelove.com)
 
 
 ## Features
