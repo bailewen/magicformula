@@ -401,7 +401,7 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
 
 # -------------------- SQLite Cache --------------------
 
-DB_PATH = Path("cache.db")
+DB_PATH = Path(__file__).parent / "cache.db"
 
 def _init_db():
     """Initialize the SQLite database with the company cache table."""
