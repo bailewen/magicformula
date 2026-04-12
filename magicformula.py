@@ -365,12 +365,13 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
         roc = ebit / capital
 
         # Sanity filters
-        if roc > 1.0:  # Cap ROC at 100%
-            roc = 1.0
-
-        if ebit < 0:
+        if roc > 10.0:  # ROC > 1000% is likely a data error
             return {"type": "skip", "ticker": symbol, "name": company_name,
-                    "reason": "Negative EBIT"}
+                    "reason": "ROC > 1000% (data error)"}
+         
+        if ey > 0.5:  # Flag: EY > 50% is usually data error
+            return {"type": "skip", "ticker": symbol, "name": company_name,
+                    "reason": "EY > 50% (data error)"}
 
 
         return {
@@ -398,19 +399,143 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
                 "reason": f"Exception: {str(e)}"}
 
 
-CACHE_DIR = Path("cache").parent / "cache"
-CACHE_DIR.mkdir(exist_ok=True)
+# -------------------- SQLite Cache --------------------
 
-def pull_company_cached(symbol, annual=False):
-    suffix = "_annual" if annual else "_ttm"
-    cache_file = CACHE_DIR / f"{symbol}{suffix}.json"
-    if cache_file.exists():
-        age = time.time() - cache_file.stat().st_mtime
-        if age < timedelta(days=7).total_seconds():
-            return json.loads(cache_file.read_text())
+DB_PATH = Path("cache.db")
+
+def _init_db():
+    """Initialize the SQLite database with the company cache table."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS company_cache (
+            ticker TEXT NOT NULL,
+            period TEXT NOT NULL,
+            name TEXT,
+            exchange TEXT,
+            country TEXT,
+            sector TEXT,
+            industry TEXT,
+            marketCap REAL,
+            EV REAL,
+            EBIT REAL,
+            NWC REAL,
+            PPE_Net REAL,
+            Capital REAL,
+            Cash REAL,
+            TotalDebt REAL,
+            EY REAL,
+            ROC REAL,
+            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (ticker, period)
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+# Initialize database on module load
+_init_db()
+
+def db_upsert(record: Dict[str, Any], period: str) -> None:
+    """Insert or update a company record in the database."""
+    if not record or record.get("type") != "success":
+        return
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""
+        INSERT INTO company_cache (
+            ticker, period, name, exchange, country, sector, industry,
+            marketCap, EV, EBIT, NWC, PPE_Net, Capital, Cash, TotalDebt, EY, ROC,
+            last_updated
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(ticker, period) DO UPDATE SET
+            name = excluded.name,
+            exchange = excluded.exchange,
+            country = excluded.country,
+            sector = excluded.sector,
+            industry = excluded.industry,
+            marketCap = excluded.marketCap,
+            EV = excluded.EV,
+            EBIT = excluded.EBIT,
+            NWC = excluded.NWC,
+            PPE_Net = excluded.PPE_Net,
+            Capital = excluded.Capital,
+            Cash = excluded.Cash,
+            TotalDebt = excluded.TotalDebt,
+            EY = excluded.EY,
+            ROC = excluded.ROC,
+            last_updated = CURRENT_TIMESTAMP
+    """, (
+        record.get("ticker"),
+        period,
+        record.get("name"),
+        record.get("exchange"),
+        record.get("country"),
+        record.get("sector"),
+        record.get("industry"),
+        record.get("marketCap"),
+        record.get("EV"),
+        record.get("EBIT"),
+        record.get("NWC"),
+        record.get("PPE_Net"),
+        record.get("Capital"),
+        record.get("Cash"),
+        record.get("TotalDebt"),
+        record.get("EY"),
+        record.get("ROC"),
+    ))
+    conn.commit()
+    conn.close()
+
+def db_fetch(ticker: str, period: str, max_age_days: int = 7) -> Optional[Dict[str, Any]]:
+    """Fetch a cached company record if it exists and is not expired."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.execute("""
+        SELECT * FROM company_cache
+        WHERE ticker = ? AND period = ?
+        AND last_updated > datetime('now', ?)
+    """, (ticker, period, f'-{max_age_days} days'))
+    row = cursor.fetchone()
+    conn.close()
+
+    if row:
+        return {
+            "type": "success",
+            "ticker": row["ticker"],
+            "name": row["name"],
+            "exchange": row["exchange"],
+            "country": row["country"],
+            "sector": row["sector"],
+            "industry": row["industry"],
+            "marketCap": row["marketCap"],
+            "EV": row["EV"],
+            "EBIT": row["EBIT"],
+            "NWC": row["NWC"],
+            "PPE_Net": row["PPE_Net"],
+            "Capital": row["Capital"],
+            "Cash": row["Cash"],
+            "TotalDebt": row["TotalDebt"],
+            "EY": row["EY"],
+            "ROC": row["ROC"],
+        }
+    return None
+
+def fetch_company_with_cache(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
+    """Fetch company data, using database cache when available."""
+    period = "annual" if annual else "ttm"
+
+    # Try to fetch from cache first
+    cached = db_fetch(symbol, period)
+    if cached:
+        return cached
+
+    # Not in cache or expired, fetch fresh data
     rec = pull_company(symbol, annual)
-    if rec and rec.get("type") == "success":  # Only cache successful records
-        cache_file.write_text(json.dumps(rec))
+
+    # Cache successful records
+    if rec and rec.get("type") == "success":
+        db_upsert(rec, period)
+
     return rec
 
 # -------------------- Ranking --------------------
@@ -445,6 +570,8 @@ def main():
     ap.add_argument("--out", type=str, default=default_name, help="Output CSV path")
     ap.add_argument("--annual", action="store_true",
                 help="Use annual data instead of TTM quarterly")
+    ap.add_argument("--health-checks", action="store_true",
+                    help="Run D/E and cash flow health checks on top candidates")
 
     args = ap.parse_args()
 
@@ -486,10 +613,10 @@ def main():
     records = []
     skipped = []
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(pull_company_cached, sym, args.annual): sym for sym in symbols}
+        futures = {executor.submit(fetch_company_with_cache, sym, args.annual): sym for sym in symbols}
         for future in tqdm(as_completed(futures), total=len(futures), desc="Pulling fundamentals"):
             try:
-                rec = future.result(timeout=30)
+                rec = future.result(timeout=10)
                 if rec:
                     if rec.get("type") == "success" and rec.get("marketCap", 0) >= args.min_mcap:
                         records.append(rec)
@@ -508,6 +635,23 @@ def main():
 
     df = pd.DataFrame(records)
     ranked = magic_formula_rank(df)
+
+    # Apply health checks only to top candidates
+    if args.health_checks:
+        top_candidates = ranked.head(args.top)
+        healthy_tickers = []
+        
+        for ticker in tqdm(top_candidates["ticker"], desc="Running health checks"):
+            health = check_financial_health(
+                ticker,
+                check_debt_revenue=True,
+                check_cashflow_quality=True
+            )
+            if health["passes_all"]:
+                healthy_tickers.append(ticker)
+        
+        ranked = ranked[ranked["ticker"].isin(healthy_tickers)]
+        print(f"Health checks: {len(healthy_tickers)}/{len(top_candidates)} passed")
 
     cols = [
         "ticker","name","exchange","country","sector","industry",
