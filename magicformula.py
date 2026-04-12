@@ -30,8 +30,19 @@ Caveats:
 Run:
  python magicformula.2.0.py --ex NASDAQ,NYSE,AMEX --top 30 --min-mcap 5e7 --limit 400
  
- 2.0 cleaned up referrences to Finnhub & adapted rate limits to FMP paid tier, added parameters to fmp_get() to filter for only actual stocks
+2.0 cleaned up referrences to Finnhub & adapted rate limits to FMP paid tier, added parameters to fmp_get() to filter for only actual stocks
 2.2 switched to TTM and added debugging visibility (error messages)
+
+*********CHANGE LIST******************
+2026-01-31: 
+- stopped numbering file name with version. Updating aliases was annoying
+- added parallel processing (ThreadPoolExecutor)
+- added -ttm flag (default is annual)
+- default countries = none (US markets only, but intl companies still included)
+- Run should report how long it took now
+2026-02-01
+
+
 
 """
 from __future__ import annotations
@@ -46,6 +57,7 @@ import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from collections import deque
+from datetime import timedelta
 
 #---filter dataset for actual active stock 
 
@@ -98,10 +110,13 @@ S.headers.update({"User-Agent": "MagicFormulaFMB/1.0"})
 def fmp_get(path: str, params: Optional[Dict[str, Any]] = None, retries: int = 3, backoff: float = 0.8):
     if params is None:
         params = {}
-    if not FMP_KEY:
+
+    api_key = os.getenv("FMP_API_KEY", "")
+    if not api_key:
         raise RuntimeError("FMP_API_KEY not set. export FMP_API_KEY=YOUR_KEY")
+ 
     params = dict(params)
-    params["apikey"] = FMP_KEY
+    params["apikey"] = api_key
     url = f"{FMP_BASE}{path}"
     for a in range(retries):
         limiter.wait()  # reuse your existing RateLimiter
@@ -155,12 +170,77 @@ def fmp_profile(ticker: str) -> Dict[str, Any]:
     return prof[0] if isinstance(prof, list) and prof else {}
 
 
-def fmp_income(ticker: str) -> List[Dict[str, Any]]:
-    # Most recent annual first
+def fmp_income(ticker: str, annual: bool = False) -> List[Dict[str, Any]]:
+    if annual:
+        return fmp_get(f"/income-statement/{ticker}", {"period": "annual", "limit": 1}) or []
     return fmp_get(f"/income-statement/{ticker}", {"period": "quarter", "limit": 4}) or []
 
 def fmp_balance(ticker: str) -> List[Dict[str, Any]]:
     return fmp_get(f"/balance-sheet-statement/{ticker}", {"period": "quarter", "limit": 1}) or []
+
+def check_financial_health(symbol: str, 
+    check_debt_revenue: bool = False,
+    check_cashflow_quality: bool = False,
+    debt_revenue_quarters: int = 6,
+    cashflow_quarters: int = 8) -> dict:
+    """
+    Optional health checks.
+    Returns dict with pass/fail for each enabled check.
+    """
+    results = {"symbol": symbol, "passes_all": True}
+    
+    # Check 1: D/E decreasing while revenue increasing
+    if check_debt_revenue:
+        try:
+            bs_data = fmp_get(f"/balance-sheet-statement/{symbol}", 
+                             {"period": "quarter", "limit": debt_revenue_quarters})
+            is_data = fmp_get(f"/income-statement/{symbol}", 
+                             {"period": "quarter", "limit": debt_revenue_quarters})
+            
+            if bs_data and is_data and len(bs_data) >= 3 and len(is_data) >= 3:
+                # Calculate D/E ratios (oldest to newest)
+                de_ratios = []
+                for q in reversed(bs_data):
+                    equity = q.get("totalStockholdersEquity") or 0
+                    debt = q.get("totalDebt") or 0
+                    de_ratios.append(debt / equity if equity > 0 else float('inf'))
+                
+                revenues = [q.get("revenue") or 0 for q in reversed(is_data)]
+                
+                # Check trend: D/E should trend down, revenue should trend up
+                de_decreasing = all(de_ratios[i] >= de_ratios[i+1] for i in range(len(de_ratios)-1))
+                rev_increasing = all(revenues[i] <= revenues[i+1] for i in range(len(revenues)-1))
+                
+                results["debt_revenue_check"] = de_decreasing and rev_increasing
+            else:
+                results["debt_revenue_check"] = None  # Insufficient data
+        except Exception:
+            results["debt_revenue_check"] = None
+        
+        if results.get("debt_revenue_check") is False:
+            results["passes_all"] = False
+    
+    # Check 2: OCF > Net Income for consecutive quarters
+    if check_cashflow_quality:
+        try:
+            cf_data = fmp_get(f"/cash-flow-statement/{symbol}", 
+                             {"period": "quarter", "limit": cashflow_quarters})
+            
+            if cf_data and len(cf_data) >= 4:
+                ocf_beats_ni = all(
+                    (q.get("operatingCashFlow") or 0) > (q.get("netIncome") or 0)
+                    for q in cf_data
+                )
+                results["cashflow_quality_check"] = ocf_beats_ni
+            else:
+                results["cashflow_quality_check"] = None
+        except Exception:
+            results["cashflow_quality_check"] = None
+        
+        if results.get("cashflow_quality_check") is False:
+            results["passes_all"] = False
+    
+    return results
 
 
 def _latest(items: List[Dict[str, Any]], field: str):
@@ -184,11 +264,15 @@ def _first_available(items: List[Dict[str, Any]], fields: List[str]):
 
 # -------------------- Field helpers --------------------
 
-def pull_company(symbol: str) -> Optional[Dict[str, Any]]:
+def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
+ 
     try:
         prof = fmp_profile(symbol)
         if not prof:
-            return None
+            return {"type": "skip", "ticker": symbol, "name": symbol, "reason": "No profile data"}
+        # records skipped items
+
+        company_name = prof.get("companyName") or prof.get("company") or symbol
 
         # Country filter handled in list_symbols
      
@@ -196,22 +280,28 @@ def pull_company(symbol: str) -> Optional[Dict[str, Any]]:
         if prof.get("sector") in EXCLUDE_SECTORS:
             return None
 
-        inc = fmp_income(symbol)
+        # Skip preferred shares and duplicate share classes
+        name = prof.get("companyName", "").lower()
+        if any(x in name for x in ["preferred", "perpetual", "series a", "series b"]):
+            return None
+     
+        inc = fmp_income(symbol, annual)
         bal = fmp_balance(symbol)
 
         # EBIT proxy (FMP uses operatingIncome)
         #ebit = _latest(inc, "operatingIncome")
         #ebit = sum(item.get("operatingIncome") or 0 for item in inc) if inc else None #annual reports
-
-        # TTM EBIT: sum last 4 quarters
-        if inc and len(inc) >= 4:
+       
+        # EBIT calculation
+        if annual:
+            ebit = _latest(inc, "operatingIncome")
+        elif inc and len(inc) >= 4:
             ebit = sum(q.get("operatingIncome") or 0 for q in inc[:4])
         elif inc:
-            # Fallback: annualize if fewer than 4 quarters available
             ebit = sum(q.get("operatingIncome") or 0 for q in inc) * (4 / len(inc))
         else:
             ebit = None
-
+          
         # Balance sheet fields
         tca  = _latest(bal, "totalCurrentAssets")
         tcl  = _latest(bal, "totalCurrentLiabilities")
@@ -241,38 +331,49 @@ def pull_company(symbol: str) -> Optional[Dict[str, Any]]:
 
             # This will tell us exactly why the TTM endpoint is failing
             print(f"DEBUG: Skipping {symbol} -> Missing: {missing}")
-            return None
+            return {"type": "skip", "ticker": symbol, "name": company_name,
+                    "reason": f"Missing fields: {', '.join(missing)}"}
 
 
 
         ev = mcap + debt - cash
-        """# The Gemini suggestion to deal with negative capital
-        nwc = tca - tcl #working capital = total current assets - total current liabilities
-        nwc = (tca - cash) - (tcl - debt) #don't count cash on hand as an asset, and subtract debt from capital
-        capital = nwc + ppe
-        
-        if ev <= 0:
-            return None
-        capital = max(capital, 1)
+   
+        # Greenblatt's formula: standard working capital
+        # nwc = tca - tcl
+        # capital = nwc + ppe
+        # It gives me no matches
 
-        ey = ebit / ev
-        roc = ebit / capital
-        """
-
-        # The Claude suggestion
+        # Modified working capital (removes idle cash and debt from capital calculation)
         nwc = (tca - cash) - (tcl - debt)
-        nwc = max(nwc, 0)  # Floor NWC at zero, not the whole capital
+        nwc = max(nwc, 0)  # Floor NWC at zero
         capital = nwc + ppe
-
+     
         if ev <= 0:
-            return None
-        if capital <= 0:  # Only skip if PPE is also zero/negative (data issue)
-            return None
-
+            return {"type": "skip", "ticker": symbol, "name": company_name,
+                    "reason": "Negative or zero EV"}
+         
+        # Handle edge cases
+        if capital <= 0:
+            return {"type": "skip", "ticker": symbol, "name": company_name,
+                    "reason": "Negative or zero capital"}
+        if capital < 10e6:  # Require minimum $10M capital base
+            return {"type": "skip", "ticker": symbol, "name": company_name,
+                    "reason": "Capital < $10M"}
+     
         ey = ebit / ev
         roc = ebit / capital
+
+        # Sanity filters
+        if roc > 1.0:  # Cap ROC at 100%
+            roc = 1.0
+
+        if ebit < 0:
+            return {"type": "skip", "ticker": symbol, "name": company_name,
+                    "reason": "Negative EBIT"}
+
 
         return {
+            "type": "success",
             "ticker": symbol,
             "name": prof.get("companyName") or prof.get("company") or prof.get("symbol"),
             "exchange": prof.get("exchangeShortName"),
@@ -290,21 +391,24 @@ def pull_company(symbol: str) -> Optional[Dict[str, Any]]:
             "EY": ey,
             "ROC": roc,
         }
-    except Exception:
-        return None
+     #record API exceptions
+    except Exception as e:
+        return {"type": "skip", "ticker": symbol, "name": symbol,
+                "reason": f"Exception: {str(e)}"}
 
 
-CACHE_DIR = Path("cache")
+CACHE_DIR = Path("cache").parent / "cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
-def pull_company_cached(symbol):
-    cache_file = CACHE_DIR / f"{symbol}.json"
+def pull_company_cached(symbol, annual=False):
+    suffix = "_annual" if annual else "_ttm"
+    cache_file = CACHE_DIR / f"{symbol}{suffix}.json"
     if cache_file.exists():
         age = time.time() - cache_file.stat().st_mtime
-        if age < 604800:  #
+        if age < timedelta(days=7).total_seconds():
             return json.loads(cache_file.read_text())
-    rec = pull_company(symbol)
-    if rec:
+    rec = pull_company(symbol, annual)
+    if rec and rec.get("type") == "success":  # Only cache successful records
         cache_file.write_text(json.dumps(rec))
     return rec
 
@@ -320,6 +424,7 @@ def magic_formula_rank(df: pd.DataFrame) -> pd.DataFrame:
 # -------------------- CLI --------------------
 
 def main():
+    start_time = time.time()
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
     default_name = f"magic_formula_{timestamp}.csv"
 
@@ -332,16 +437,31 @@ def main():
     ap.add_argument("--sleep", type=float, default=0.2, help="Delay between API calls to respect rate limits")
     ap.add_argument("--top", type=int, default=30, help="How many top results to export")
     ap.add_argument("--random", action="store_true", help="Shuffle symbols before limiting (for random sampling)")
-
+    ap.add_argument("--countries", type=str, default=None,
+                help="Comma-separated country codes (e.g., US,CA,GB). Default: US")
+    ap.add_argument("--tier1", action="store_true",
+                help="Use Tier 1 markets: US, SG, GB, CA")
     ap.add_argument("--out", type=str, default=default_name, help="Output CSV path")
+    ap.add_argument("--annual", action="store_true",
+                help="Use annual data instead of TTM quarterly")
+
     args = ap.parse_args()
-    
+
+ # Parse countries
+    if args.tier1:
+        countries = ["US", "SG", "GB", "CA"]
+    elif args.countries:
+        countries = [c.strip() for c in args.countries.split(',')]
+    else:
+        countries = None  # All countries on US exchanges
+
+ 
     exchanges = [x.strip() for x in args.exchanges.split(',') if x.strip()]
 
     # Pull symbols per exchange
     symbols: List[str] = []
     for ex in exchanges:
-        rows = list_symbols(ex, args.min_mcap)
+        rows = list_symbols(ex, args.min_mcap, countries)
         for r in rows:
             sym = r.get("symbol") or r.get("displaySymbol")
             if sym:
@@ -359,13 +479,27 @@ def main():
         symbols = symbols[:args.limit]
     
     # Pull company data
+ 
+    # Pull company data
+ 
     records = []
+    skipped = []
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(pull_company_cached, sym): sym for sym in symbols}
+        futures = {executor.submit(pull_company_cached, sym, args.annual): sym for sym in symbols}
         for future in tqdm(as_completed(futures), total=len(futures), desc="Pulling fundamentals"):
-            rec = future.result()
-            if rec and rec.get("marketCap", 0) >= args.min_mcap:
-                records.append(rec)
+            try:
+                rec = future.result(timeout=30)
+                if rec:
+                    if rec.get("type") == "success" and rec.get("marketCap", 0) >= args.min_mcap:
+                        records.append(rec)
+                    elif rec.get("type") == "skip":
+                        skipped.append({
+                            "ticker": rec.get("ticker"),
+                            "name": rec.get("name", ""),
+                            "reason": rec.get("reason", "Unknown")
+                        })
+            except Exception:
+                pass
 
     if not records:
         print("No qualifying records. Try increasing --limit or lowering --min-mcap.")
@@ -383,6 +517,13 @@ def main():
 
     out = ranked[cols].head(args.top)
     out.to_csv(args.out, index=False)
+    
+# Save skipped stocks to separate CSV
+    if skipped:
+        skipped_file = args.out.replace(".csv", "_skipped.csv")
+        skipped_df = pd.DataFrame(skipped)
+        skipped_df.to_csv(skipped_file, index=False)
+        print(f"\nSkipped {len(skipped)} stocks (saved to: {skipped_file})")
 
 #notification when script is done 
     try:
@@ -390,7 +531,7 @@ def main():
         subprocess.run([
             "notify-send",
             "Magic Formula Scan Complete",
-            f"Successfully processed {args.limit} stocks.\nTop {args.top} results saved to {args.out}.",
+            f"Successfully processed {args.limit} stocks.\nTop {args.top} results saved to {args.out}.\n{len(skipped)} stocks skipped.",            
             "--icon=utilities-terminal"
         ])
     except Exception as e:
@@ -398,6 +539,11 @@ def main():
 
     print("Top results saved to:", args.out)
     print(out.to_string(index=False, max_colwidth=28))
+ 
+    elapsed = time.time() - start_time
+    minutes, seconds = divmod(int(elapsed), 60)
+    print(f"Completed in {minutes}m {seconds}s")
 
-if __name__ == "__main__":
+ 
+if __name__ == "__main__": 
     main()

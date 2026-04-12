@@ -183,6 +183,8 @@ with st.sidebar:
     )
     
     st.divider()
+    run_button = st.button("🚀 Run Magic Formula Scan", type="primary", width='stretch')
+
     st.subheader("🩺 Health Checks (Optional)")
     
     check_debt_revenue = st.checkbox(
@@ -262,7 +264,7 @@ if run_button:
             progress_bar.progress(completed / len(all_symbols))
             
             try:
-                rec = future.result(timeout=10)
+                rec = future.result()
                 if rec and rec.get("marketCap", 0) >= min_mcap:
                     records.append(rec)
             except Exception as e:
