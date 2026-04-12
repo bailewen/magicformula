@@ -252,7 +252,7 @@ if run_button:
     progress_bar = st.progress(0)
     status_text = st.empty()
 
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=10) as executor:
         futures = {executor.submit(mf.fetch_company_with_cache, sym, use_annual): sym for sym in all_symbols}
 
         completed = 0
