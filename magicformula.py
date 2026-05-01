@@ -265,7 +265,7 @@ def _first_available(items: List[Dict[str, Any]], fields: List[str]):
 
 # -------------------- Field helpers --------------------
 
-def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
+def pull_company(symbol: str, annual: bool = False, subtract_intangibles: bool = True) -> Optional[Dict[str, Any]]:
  
     try:
         prof = fmp_profile(symbol)
@@ -298,8 +298,6 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
             ebit = _latest(inc, "operatingIncome")
         elif inc and len(inc) >= 4:
             ebit = sum(q.get("operatingIncome") or 0 for q in inc[:4])
-        elif inc:
-            ebit = sum(q.get("operatingIncome") or 0 for q in inc) * (4 / len(inc))
         else:
             ebit = None
           
@@ -308,7 +306,7 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
         tcl  = _latest(bal, "totalCurrentLiabilities")
         ppe  = _latest(bal, "propertyPlantEquipmentNet")
         cash = _latest(bal, "cashAndShortTermInvestments")
-        debt = _first_available(bal, ["totalDebt", "shortTermDebt", "longTermDebt"])
+        debt = _first_available(bal, ["totalDebt", "shortTermDebt", "longTermDebt"]) or 0.0
 
         # Market cap from profile (FMP 'mktCap' sometimes named 'marketCap')
         mcap = prof.get("mktCap") if prof.get("mktCap") is not None else prof.get("marketCap")
@@ -347,11 +345,19 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
         # Modified working capital (removes idle cash and debt from capital calculation)
         nwc = (tca - cash) - (tcl - debt)
         nwc = max(nwc, 0)  # Floor NWC at zero
+        goodwill = _latest(bal, "goodwill") or 0
+        intangibles = _latest(bal, "intangibleAssets") or 0
         capital = nwc + ppe
-     
+
+        #filter out negative enterprise value (companies running on debt)
         if ev <= 0:
             return {"type": "skip", "ticker": symbol, "name": company_name,
                     "reason": "Negative or zero EV"}
+
+
+        if ev < mcap * 0.01:
+            return {"type": "skip", "ticker": symbol, "name": company_name,
+                    "reason": "EV implausibly small vs market cap (data error)"}
          
         # Handle edge cases
         if capital <= 0:
@@ -360,7 +366,10 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
         if capital < 10e6:  # Require minimum $10M capital base
             return {"type": "skip", "ticker": symbol, "name": company_name,
                     "reason": "Capital < $10M"}
-     
+
+        if ebit < 0:
+            return {"type": "skip", "ticker": symbol, "name": company_name,
+                    "reason": "Negative EBIT"}
         ey = ebit / ev
         roc = ebit / capital
 
@@ -368,10 +377,6 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
         if roc > 10.0:  # ROC > 1000% is likely a data error
             return {"type": "skip", "ticker": symbol, "name": company_name,
                     "reason": "ROC > 1000% (data error)"}
-         
-        if ey > 0.5:  # Flag: EY > 50% is usually data error
-            return {"type": "skip", "ticker": symbol, "name": company_name,
-                    "reason": "EY > 50% (data error)"}
 
 
         return {
@@ -392,6 +397,8 @@ def pull_company(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
             "TotalDebt": debt,
             "EY": ey,
             "ROC": roc,
+            "Goodwill": goodwill,
+            "Intangibles": intangibles,
         }
      #record API exceptions
     except Exception as e:
@@ -425,6 +432,8 @@ def _init_db():
             TotalDebt REAL,
             EY REAL,
             ROC REAL,
+            Goodwill REAL,
+            Intangibles REAL,
             last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (ticker, period)
         )
@@ -444,9 +453,9 @@ def db_upsert(record: Dict[str, Any], period: str) -> None:
     conn.execute("""
         INSERT INTO company_cache (
             ticker, period, name, exchange, country, sector, industry,
-            marketCap, EV, EBIT, NWC, PPE_Net, Capital, Cash, TotalDebt, EY, ROC,
+            marketCap, EV, EBIT, NWC, PPE_Net, Capital, Cash, TotalDebt, EY, ROC, Goodwill, Intangibles, 
             last_updated
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(ticker, period) DO UPDATE SET
             name = excluded.name,
             exchange = excluded.exchange,
@@ -463,6 +472,8 @@ def db_upsert(record: Dict[str, Any], period: str) -> None:
             TotalDebt = excluded.TotalDebt,
             EY = excluded.EY,
             ROC = excluded.ROC,
+            Goodwill = excluded.Goodwill,
+            Intangibles = excluded.Intangibles,
             last_updated = CURRENT_TIMESTAMP
     """, (
         record.get("ticker"),
@@ -482,6 +493,8 @@ def db_upsert(record: Dict[str, Any], period: str) -> None:
         record.get("TotalDebt"),
         record.get("EY"),
         record.get("ROC"),
+        record.get("Goodwill"),
+        record.get("Intangibles"),
     ))
     conn.commit()
     conn.close()
@@ -520,9 +533,12 @@ def db_fetch(ticker: str, period: str, max_age_days: int = 7) -> Optional[Dict[s
         }
     return None
 
-def fetch_company_with_cache(symbol: str, annual: bool = False) -> Optional[Dict[str, Any]]:
+def fetch_company_with_cache(symbol: str, annual: bool = False, subtract_intangibles: bool = True) -> Optional[
+        Dict[str, Any]]:
     """Fetch company data, using database cache when available."""
     period = "annual" if annual else "ttm"
+    if subtract_intangibles:
+        period += "_gi"
 
     # Try to fetch from cache first
     cached = db_fetch(symbol, period)
@@ -530,7 +546,7 @@ def fetch_company_with_cache(symbol: str, annual: bool = False) -> Optional[Dict
         return cached
 
     # Not in cache or expired, fetch fresh data
-    rec = pull_company(symbol, annual)
+    rec = pull_company(symbol, annual, subtract_intangibles)
 
     # Cache successful records
     if rec and rec.get("type") == "success":
@@ -572,6 +588,9 @@ def main():
                 help="Use annual data instead of TTM quarterly")
     ap.add_argument("--health-checks", action="store_true",
                     help="Run D/E and cash flow health checks on top candidates")
+    ap.add_argument("--no-intangibles", action="store_false", dest="subtract_intangibles",
+                    help="Exclude goodwill/intangibles from capital calculation")
+    ap.set_defaults(subtract_intangibles=True)
 
     args = ap.parse_args()
 
@@ -613,7 +632,8 @@ def main():
     records = []
     skipped = []
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(fetch_company_with_cache, sym, args.annual): sym for sym in symbols}
+        futures = {executor.submit(fetch_company_with_cache, sym, args.annual, args.subtract_intangibles): sym for sym
+                   in symbols}
         for future in tqdm(as_completed(futures), total=len(futures), desc="Pulling fundamentals"):
             try:
                 rec = future.result(timeout=10)
@@ -656,7 +676,7 @@ def main():
     cols = [
         "ticker","name","exchange","country","sector","industry",
         "marketCap","EV","EBIT","NWC","PPE_Net","Capital","Cash","TotalDebt",
-        "EY","ROC","EY_rank","ROC_rank","MF_score"
+        "EY","ROC","EY_rank","ROC_rank","MF_score","Goodwill","Intangibles"
     ]
     cols = [c for c in cols if c in ranked.columns]
 
