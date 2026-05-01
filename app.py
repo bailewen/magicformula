@@ -1,223 +1,196 @@
-import streamlit as st
-import pandas as pd
-import sys
+from flask import Flask, render_template, request, Response, jsonify, send_file
+import json
+import threading
+import queue
+import time
 import os
-import plotly.express as px
+import sys
+import io
+import uuid
+import random
+import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import requests
 
-@st.cache_data(ttl=86400)
-def get_company_description(symbol: str, api_key: str) -> str:
-    try:
-        url = f"https://financialmodelingprep.com/api/v3/profile/{symbol}"
-        response = requests.get(url, params={"apikey": api_key}, timeout=10)
-        data = response.json()
-        if data and isinstance(data, list):
-            desc = data[0].get("description", "")
-            sentences = desc.split(". ")
-            return ". ".join(sentences[:4]) + ("." if len(sentences) > 4 else "")
-    except Exception:
-        pass
-    return "No description available."
-
-
-# Add current directory to Python path
+# Add current directory to path so magicformula imports correctly
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-# Import your magic formula module
 import magicformula as mf
 
-# Page Config
-st.set_page_config(
-    page_title="Magic Formula Screener",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+app = Flask(__name__)
 
-st.title("📈 Magic Formula Stock Picker")
-st.write("Based on Joel Greenblatt's strategy using Financial Modeling Prep data.")
+# In-memory store for scan state keyed by scan_id
+# Each entry: {"queue": Queue, "results": None, "error": None, "done": False}
+_scans = {}
+_scans_lock = threading.Lock()
 
-# add toggle (checkbox)
-def toggle_tier1():
-    if "all_t1" in st.session_state:
-        for key in ["usa", "sgp", "gbr", "can"]:
-            st.session_state[key] = st.session_state.all_t1
 
-with st.sidebar:
+# ── Routes ────────────────────────────────────────────────────────────────────
 
-    st.header("⚙️ Settings")
+@app.route("/")
+def index():
+    api_key_present = bool(os.getenv("FMP_API_KEY"))
+    return render_template("index.html", api_key_present=api_key_present)
 
-    # API Key Input
-    st.subheader("🔑 API Configuration")
 
-    if os.getenv("FMP_API_KEY"):
-        api_key_input = os.getenv("FMP_API_KEY")
-        st.success("✅ API key loaded from environment")
-    else:
-        api_key_input = st.text_input(
-            "FMP API Key",
-            type="password",
-            help="Get your API key at financialmodelingprep.com"
-        )
+@app.route("/scan", methods=["POST"])
+def start_scan():
+    """Receive scan parameters, kick off background thread, return scan_id."""
+    params = request.get_json(force=True)
 
-        if not api_key_input:
-            st.warning("⚠️ Please enter your FMP API key to use the screener")
-            st.info("👉 Get an API key at [financialmodelingprep.com](https://financialmodelingprep.com/developer/docs/pricing)")
-            st.markdown("**Required:** Starter plan or higher ($19/mo)")
-            st.stop()
+    # Set API key if provided via form
+    api_key = params.get("api_key") or os.getenv("FMP_API_KEY", "")
+    if not api_key:
+        return jsonify({"error": "No FMP API key provided."}), 400
+    os.environ["FMP_API_KEY"] = api_key
 
-    os.environ["FMP_API_KEY"] = api_key_input
+    scan_id = str(uuid.uuid4())
+    q = queue.Queue()
 
-    run_button = st.button("🚀 Run Magic Formula Scan", type="primary", use_container_width=True)
+    with _scans_lock:
+        _scans[scan_id] = {"queue": q, "results": None, "error": None, "summary": None, "done": False,
+                           "created_at": time.time(), "cancelled": False}
 
-    st.divider()
+    t = threading.Thread(target=_run_scan, args=(scan_id, params, q), daemon=True)
+    t.start()
 
-    # Exchange Selection
-    exchanges = st.text_input(
-        "Exchanges (comma-separated)",
-        value="NASDAQ,NYSE,AMEX",
-        help="FMP exchange codes like NASDAQ, NYSE, AMEX, LSE"
+    return jsonify({"scan_id": scan_id})
+
+@app.route("/stop/<scan_id>", methods=["POST"])
+def stop_scan(scan_id):
+    with _scans_lock:
+        entry = _scans.get(scan_id)
+    if not entry:
+        return jsonify({"error": "Unknown scan ID"}), 404
+    entry["cancelled"] = True
+    return jsonify({"status": "cancelling"})
+
+@app.route("/progress/<scan_id>")
+def progress(scan_id):
+    """SSE endpoint — browser connects here and receives newline-delimited JSON events."""
+    def generate():
+        with _scans_lock:
+            entry = _scans.get(scan_id)
+        if not entry:
+            yield _sse({"type": "error", "message": "Unknown scan ID"})
+            return
+
+        q = entry["queue"]
+        while True:
+            try:
+                msg = q.get(timeout=30)
+            except queue.Empty:
+                # Send keepalive comment so the connection stays open
+                yield ": keepalive\n\n"
+                continue
+
+            yield _sse(msg)
+
+            if msg.get("type") in ("done", "error"):
+                break
+
+    return Response(generate(), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@app.route("/results/<scan_id>")
+def get_results(scan_id):
+    """Return the final ranked results as JSON once the scan is done."""
+    with _scans_lock:
+        entry = _scans.get(scan_id)
+    if not entry:
+        return jsonify({"error": "Unknown scan ID"}), 404
+    if not entry["done"]:
+        return jsonify({"error": "Scan not yet complete"}), 202
+    if entry["error"]:
+        return jsonify({"error": entry["error"]}), 500
+    return jsonify({"results": entry["results"]})
+
+
+@app.route("/download/<scan_id>")
+def download_csv(scan_id):
+    """Stream the results as a CSV download."""
+    with _scans_lock:
+        entry = _scans.get(scan_id)
+    if not entry or not entry["done"] or not entry["results"]:
+        return jsonify({"error": "No results available"}), 404
+
+    df = pd.DataFrame(entry["results"])
+    csv_bytes = df.to_csv(index=False).encode("utf-8")
+    timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M")
+    return send_file(
+        io.BytesIO(csv_bytes),
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name=f"magic_formula_{timestamp}.csv"
     )
 
-    st.subheader("Markets")
 
-    filter_by_country = st.checkbox(
-        "Select domiciles",
-        value=True,
-        help="Off = all countries on US exchanges (Greenblatt default). On = filter by country."
-    )
+# ── Background scan logic ──────────────────────────────────────────────────────
 
-    if filter_by_country:
-        st.checkbox(
-            "Select all Tier 1",
-            key="all_t1",
-            on_change=toggle_tier1
-        )
+def _push(q, msg: dict):
+    q.put(msg)
 
-        col1, col2, col3 = st.columns(3)
 
-        with col1:
-            st.markdown("**Tier 1**")
-            us = st.checkbox("USA", value=True, key="usa")
-            sg = st.checkbox("SGP", value=False, key="sgp")
-            uk = st.checkbox("GBR", value=False, key="gbr")
-            ca = st.checkbox("CAN", value=False, key="can")
+def _sse(data: dict) -> str:
+    return f"data: {json.dumps(data)}\n\n"
 
-        with col2:
-            st.markdown("**Tier 2**")
-            au = st.checkbox("AUS", value=False)
-            de = st.checkbox("DEU", value=False)
-            fr = st.checkbox("FRA", value=False)
-            jp = st.checkbox("JPN", value=False)
+def _compute_summary(results: list, elapsed: float) -> dict:
+    if not results:
+        return {}
+    eys   = [r["EY"]  for r in results if r.get("EY")  is not None]
+    rocs  = [r["ROC"] for r in results if r.get("ROC") is not None]
+    mcaps = [r["marketCap"] for r in results if r.get("marketCap") is not None]
+    from collections import Counter
+    sectors = Counter(r.get("sector") or "Unknown" for r in results)
+    minutes, seconds = divmod(int(elapsed), 60)
+    return {
+        "elapsed_str":    f"{minutes}m {seconds}s",
+        "count":          len(results),
+        "avg_ey":         round(sum(eys)  / len(eys)  * 100, 2) if eys  else None,
+        "avg_roc":        round(sum(rocs) / len(rocs) * 100, 2) if rocs else None,
+        "median_ey":      round(sorted(eys)[len(eys)   // 2] * 100, 2) if eys  else None,
+        "median_roc":     round(sorted(rocs)[len(rocs) // 2] * 100, 2) if rocs else None,
+        "max_ey":         round(max(eys)  * 100, 2) if eys  else None,
+        "max_roc":        round(max(rocs) * 100, 2) if rocs else None,
+        "median_mcap_b":  round(sorted(mcaps)[len(mcaps) // 2] / 1e9, 2) if mcaps else None,
+        "top_sectors":    dict(sectors.most_common(5)),
+        "scatter": [
+            {"ticker": r["ticker"], "name": r.get("name", ""), "sector": r.get("sector", ""),
+             "ey": round(r["EY"] * 100, 2), "roc": round(r["ROC"] * 100, 2)}
+            for r in results if r.get("EY") is not None and r.get("ROC") is not None
+        ],
+    }
 
-        with col3:
-            st.markdown("**Tier 3**")
-            hk = st.checkbox("HKG", value=False)
-            kr = st.checkbox("KOR", value=False)
-            in_market = st.checkbox("IND", value=False)
-            cn = st.checkbox("CHN", value=False)
+def _evict_old_scans(max_age_seconds=7200):
+    cutoff = time.time() - max_age_seconds
+    with _scans_lock:
+        to_del = [sid for sid, e in _scans.items()
+                  if e["done"] and e.get("created_at", 0) < cutoff]
+        for sid in to_del:
+            del _scans[sid]
 
-        selected_countries = []
-        if us: selected_countries.append("US")
-        if sg: selected_countries.append("SG")
-        if uk: selected_countries.append("GB")
-        if ca: selected_countries.append("CA")
-        if au: selected_countries.append("AU")
-        if de: selected_countries.append("DE")
-        if fr: selected_countries.append("FR")
-        if jp: selected_countries.append("JP")
-        if hk: selected_countries.append("HK")
-        if kr: selected_countries.append("KR")
-        if in_market: selected_countries.append("IN")
-        if cn: selected_countries.append("CN")
+def _run_scan(scan_id: str, params: dict, q: queue.Queue):
+    scan_start = time.time()
+    try:
+        exchanges_raw = params.get("exchanges", "NASDAQ,NYSE,AMEX")
+        exchanges_list = [x.strip() for x in exchanges_raw.split(",") if x.strip()]
+        min_mcap = float(params.get("min_mcap", 50_000_000))
+        limit = int(params.get("limit", 4000))
+        top_n = int(params.get("top_n", 30))
+        use_random = params.get("use_random", True)
+        use_annual = params.get("use_annual", True)
+        check_debt_revenue = params.get("check_debt_revenue", False)
+        check_cashflow = params.get("check_cashflow", False)
 
+        # Country filter
+        selected_countries = params.get("selected_countries", ["US"])
         if not selected_countries:
-            st.warning("⚠️ Please select at least one market")
+            selected_countries = ["US"]
 
-    else:
-        selected_countries = None
-
-    min_mcap = st.number_input(
-        "Min Market Cap (USD)",
-        value=50_000_000,
-        step=10_000_000,
-        format="%d",
-        help="Minimum market capitalization in USD"
-    )
-
-    scan_mode = st.radio(
-        "Max Stocks to Scan",
-        options=["Use Slider", "Enter Manually"],
-        horizontal=True
-    )
-
-    if scan_mode == "Use Slider":
-        limit = st.slider(
-            "Number of stocks",
-            min_value=10,
-            max_value=4500,
-            value=400,
-            help="Limit processing (set to 4500 for all stocks)"
-        )
-    else:
-        limit = st.number_input(
-            "Number of stocks",
-            min_value=10,
-            max_value=10000,
-            value=400,
-            step=50,
-            help="Enter any number (higher values may take longer)"
-        )
-
-    top_n = st.number_input(
-        "Top N Results to Display",
-        value=30,
-        min_value=5,
-        max_value=100,
-        help="Number of top-ranked stocks to show"
-    )
-
-    use_random = st.checkbox(
-        "Randomize symbol selection",
-        value=True,
-        help="Shuffle symbols before limiting (for random sampling)"
-    )
-    use_annual = st.checkbox(
-        "Use Annual Data (instead of TTM)",
-        value=True,
-        help="Use annual financial data instead of trailing twelve months"
-    )
-
-    st.divider()
-    st.subheader("🩺 Health Checks (Optional)")
-
-    check_debt_revenue = st.checkbox(
-        "D/E decreasing + Revenue increasing",
-        value=False,
-        help="Require debt-to-equity ratio declining while revenue grows over 6 quarters"
-    )
-
-    check_cashflow = st.checkbox(
-        "Cash flow exceeds net income",
-        value=False,
-        help="Require operating cash flow > net income for 8 consecutive quarters"
-    )
-
-# Main content area
-if run_button:
-    import time
-    start_time = time.time()
-
-    if not os.getenv("FMP_API_KEY"):
-        st.error("❌ FMP_API_KEY environment variable not set!")
-        st.info("Set it with: `export FMP_API_KEY='your_key_here'`")
-        st.stop()
-
-    # Step 1: Gather symbols
-    with st.spinner("🔍 Gathering symbols from exchanges..."):
-        exchanges_list = [x.strip() for x in exchanges.split(',') if x.strip()]
+        # ── Step 1: Gather symbols ─────────────────────────────────────────
+        _push(q, {"type": "status", "message": "Gathering symbols from exchanges…", "step": 1})
 
         all_symbols = []
         for ex in exchanges_list:
@@ -228,69 +201,81 @@ if run_button:
                     if sym:
                         all_symbols.append(sym)
             except Exception as e:
-                st.warning(f"⚠️ Error fetching symbols from {ex}: {str(e)}")
+                _push(q, {"type": "warning", "message": f"Error fetching symbols from {ex}: {e}"})
 
-        all_symbols = list(dict.fromkeys(all_symbols))
+        all_symbols = list(dict.fromkeys(all_symbols))  # dedup, preserve order
+
+        if _scans[scan_id].get("cancelled"):
+            _push(q, {"type": "error", "message": "Scan cancelled."})
+            _finalize(scan_id, error="Cancelled")
+            return
 
         if use_random:
-            import random
             random.shuffle(all_symbols)
 
         if limit and len(all_symbols) > limit:
             all_symbols = all_symbols[:limit]
 
-        st.success(f"✅ Found {len(all_symbols)} symbols to analyze")
+        if not all_symbols:
+            _push(q, {"type": "error", "message": "No symbols found. Check exchange codes and market cap filter."})
+            _finalize(scan_id, error="No symbols found.")
+            return
 
-    if not all_symbols:
-        st.error("No symbols found. Check your exchange codes and market cap filter.")
-        st.stop()
+        _push(q, {"type": "status", "message": f"Found {len(all_symbols)} symbols to analyze", "step": 1})
 
-    # Step 2: Pull fundamentals with progress tracking
-    st.subheader("📊 Analyzing Fundamentals")
+        # ── Step 2: Pull fundamentals ──────────────────────────────────────
+        _push(q, {"type": "status", "message": "Pulling fundamentals…", "step": 2})
 
-    records = []
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(mf.fetch_company_with_cache, sym, use_annual): sym for sym in all_symbols}
-
+        records = []
+        total = len(all_symbols)
         completed = 0
-        for future in as_completed(futures):
-            sym = futures[future]
-            completed += 1
 
-            status_text.text(f"Analyzing {sym} ({completed}/{len(all_symbols)})")
-            progress_bar.progress(completed / len(all_symbols))
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {
+                executor.submit(mf.fetch_company_with_cache, sym, use_annual, False): sym
+                for sym in all_symbols
+            }
+            for future in as_completed(futures):
+                sym = futures[future]
+                completed += 1
+                pct = round(completed / total * 100)
 
-            try:
-                rec = future.result(timeout=10)
-                if rec and rec.get("marketCap", 0) >= min_mcap:
-                    records.append(rec)
-            except Exception:
-                pass
+                _push(q, {
+                    "type": "progress",
+                    "symbol": sym,
+                    "completed": completed,
+                    "total": total,
+                    "pct": pct,
+                })
 
-    progress_bar.empty()
-    status_text.empty()
+                if _scans[scan_id].get("cancelled"):
+                    _push(q, {"type": "error", "message": "Scan cancelled."})
+                    _finalize(scan_id, error="Cancelled")
+                    return
 
-    # Step 3: Rank and display results
-    if not records:
-        st.error("❌ No qualifying stocks found. Try:")
-        st.write("- Lowering the minimum market cap")
-        st.write("- Increasing the scan limit")
-        st.write("- Checking different exchanges")
-        st.stop()
+                try:
+                    rec = future.result(timeout=10)
+                    if rec and rec.get("marketCap", 0) >= min_mcap:
+                        records.append(rec)
+                except Exception:
+                    pass
 
-    st.success(f"✅ Found {len(records)} qualifying stocks")
+        if not records:
+            _push(q, {"type": "error", "message": "No qualifying stocks found. Try lowering min market cap or increasing scan limit."})
+            _finalize(scan_id, error="No qualifying stocks found.")
+            return
 
-    df = pd.DataFrame(records)
-    ranked = mf.magic_formula_rank(df)
+        _push(q, {"type": "status", "message": f"Found {len(records)} qualifying stocks. Ranking…", "step": 3})
 
-    if check_debt_revenue or check_cashflow:
-        with st.spinner(f"🩺 Running health checks on top {top_n} candidates..."):
+        # ── Step 3: Rank ───────────────────────────────────────────────────
+        df = pd.DataFrame(records)
+        ranked = mf.magic_formula_rank(df)
+
+        # ── Step 4: Optional health checks ────────────────────────────────
+        if check_debt_revenue or check_cashflow:
+            _push(q, {"type": "status", "message": f"Running health checks on top {top_n} candidates…", "step": 4})
             top_candidates = ranked.head(top_n)
             healthy_tickers = []
-
             for ticker in top_candidates["ticker"]:
                 health = mf.check_financial_health(
                     ticker,
@@ -299,117 +284,46 @@ if run_button:
                 )
                 if health["passes_all"]:
                     healthy_tickers.append(ticker)
-
             ranked = ranked[ranked["ticker"].isin(healthy_tickers)]
-            st.info(f"🩺 Health checks: {len(healthy_tickers)}/{len(top_candidates)} passed")
+            _push(q, {"type": "status", "message": f"Health checks: {len(healthy_tickers)}/{len(top_candidates)} passed", "step": 4})
 
-    if len(ranked) == 0:
-        st.error("❌ No stocks passed health checks. Try disabling some filters.")
-        st.stop()
+        # ── Step 5: Build output ───────────────────────────────────────────
+        display_cols = [
+            "ticker", "name", "exchange", "country", "sector", "industry",
+            "marketCap", "EV", "EBIT", "EY", "ROC", "EY_rank", "ROC_rank", "MF_score"
+        ]
+        display_cols = [c for c in display_cols if c in ranked.columns]
+        final_df = ranked[display_cols].head(top_n)
 
-    display_cols = [
-        "ticker", "name", "exchange", "country", "sector", "industry",
-        "marketCap", "EV", "EBIT", "EY", "ROC",
-        "EY_rank", "ROC_rank", "MF_score"
-    ]
-    display_cols = [c for c in display_cols if c in ranked.columns]
-    final_df = ranked[display_cols].head(top_n)
+        results = final_df.to_dict(orient="records")
 
-    descriptions = {
-        row["ticker"]: get_company_description(row["ticker"], api_key_input)
-        for _, row in final_df.iterrows()
-    }
+        elapsed = time.time() - scan_start
+        summary = _compute_summary(results, elapsed)
+        _finalize(scan_id, results=results, summary=summary)
+        _push(q, {"type": "done", "count": len(results), "total_analyzed": len(records), "summary": summary})
 
-    # Display results
-    st.subheader(f"🏆 Top {top_n} Stocks by Magic Formula")
+    except Exception as e:
+        _push(q, {"type": "error", "message": str(e)})
+        _finalize(scan_id, error=str(e))
 
-    formatted_df = final_df.copy()
-    if "marketCap" in formatted_df.columns:
-        formatted_df["marketCap"] = formatted_df["marketCap"].apply(lambda x: f"${x/1e9:.2f}B" if x >= 1e9 else f"${x/1e6:.1f}M")
-    if "EV" in formatted_df.columns:
-        formatted_df["EV"] = formatted_df["EV"].apply(lambda x: f"${x/1e9:.2f}B" if x >= 1e9 else f"${x/1e6:.1f}M")
-    if "EBIT" in formatted_df.columns:
-        formatted_df["EBIT"] = formatted_df["EBIT"].apply(lambda x: f"${x/1e9:.2f}B" if abs(x) >= 1e9 else f"${x/1e6:.1f}M")
-    if "EY" in formatted_df.columns:
-        formatted_df["EY"] = formatted_df["EY"].apply(lambda x: f"{x:.2%}")
-    if "ROC" in formatted_df.columns:
-        formatted_df["ROC"] = formatted_df["ROC"].apply(lambda x: f"{x:.2%}")
 
-    st.dataframe(
-        formatted_df,
-        use_container_width=True,
-        height=600
-    )
+def _finalize(scan_id: str, results=None, error=None, summary=None):
+    with _scans_lock:
+        if scan_id in _scans:
+            _scans[scan_id]["results"] = results
+            _scans[scan_id]["error"] = error
+            _scans[scan_id]["summary"] = summary
+            _scans[scan_id]["done"] = True
 
-    selected_ticker = st.selectbox(
-        "🔍 Company summary",
-        options=[""] + list(final_df["ticker"]),
-        format_func=lambda x: "Select a ticker..." if x == "" else x
-    )
 
-    if selected_ticker:
-        st.info(descriptions[selected_ticker])
+# ── Entry point ───────────────────────────────────────────────────────────────
 
-    st.subheader("📊 Visual Analysis")
+def _cleanup_loop():
+    while True:
+        time.sleep(3600)
+        _evict_old_scans()
 
-    fig = px.scatter(
-        final_df,
-        x="EY",
-        y="ROC",
-        text="ticker",
-        size="marketCap",
-        color="sector",
-        hover_name="name",
-        labels={"EY": "Earnings Yield (Cheapness)", "ROC": "Return on Capital (Quality)"},
-        title="Magic Formula Frontier: Quality vs. Value"
-    )
+threading.Thread(target=_cleanup_loop, daemon=True).start()
 
-    fig.update_traces(textposition='top center')
-    st.plotly_chart(fig, use_container_width=True)
-
-    # Download button
-    csv = final_df.to_csv(index=False).encode('utf-8')
-    timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M')
-    st.download_button(
-        label="💾 Download Results as CSV",
-        data=csv,
-        file_name=f"magic_formula_{timestamp}.csv",
-        mime="text/csv",
-        use_container_width=True
-    )
-
-    # Summary statistics
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Stocks Analyzed", len(records))
-    with col2:
-        avg_ey = final_df["EY"].mean() if "EY" in final_df.columns else 0
-        st.metric("Avg Earnings Yield", f"{avg_ey:.2%}")
-    with col3:
-        avg_roc = final_df["ROC"].mean() if "ROC" in final_df.columns else 0
-        st.metric("Avg ROC", f"{avg_roc:.2%}")
-    with col4:
-        top_score = final_df["MF_score"].iloc[0] if "MF_score" in final_df.columns and len(final_df) > 0 else 0
-        st.metric("Top MF Score", f"{top_score:.0f}")
-
-    elapsed = time.time() - start_time
-    minutes, seconds = divmod(int(elapsed), 60)
-    st.success(f"⏱️ Scan completed in {minutes}m {seconds}s")
-
-else:
-    st.info("👈 Configure your scan settings in the sidebar and click **Run Magic Formula Scan** to start")
-
-    st.markdown("""
-    ### How it works:
-    1. **Select exchanges** - Choose which stock exchanges to scan
-    2. **Set minimum market cap** - Filter out micro-cap stocks
-    3. **Limit scan size** - Control how many stocks to analyze (respects API limits)
-    4. **Run the scan** - Let the screener analyze fundamentals and rank stocks
-
-    ### Magic Formula Metrics:
-    - **EY (Earnings Yield)** = EBIT / Enterprise Value
-    - **ROC (Return on Capital)** = EBIT / (Net Working Capital + Net Fixed Assets)
-    - **MF Score** = Combined rank (lower is better)
-
-    Excludes financial services, utilities, and real estate sectors as per Greenblatt's methodology.
-    """)
+if __name__ == "__main__":
+    app.run(debug=True, port=5000, threaded=True, use_reloader=False)

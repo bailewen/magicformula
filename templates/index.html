@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Magic Formula Screener</title>
+
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.27.0/plotly.min.js"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <div class="brand">
+        <span class="brand-icon">📈</span>
+        <div>
+          <div class="brand-title">Magic Formula</div>
+          <div class="brand-sub">Greenblatt Screener</div>
+        </div>
+      </div>
+
+      <!-- API Key -->
+      <section class="sidebar-section">
+        <div class="section-label">API Configuration</div>
+        {% if api_key_present %}
+          <div class="api-status ok">✅ API key loaded from environment</div>
+        {% else %}
+          <label class="field-label" for="api_key">FMP API Key</label>
+          <input type="password" id="api_key" class="input" placeholder="Enter your FMP API key">
+          <div class="hint">Get a key at <a href="https://financialmodelingprep.com/developer/docs/pricing" target="_blank">financialmodelingprep.com</a> — Starter plan or higher required.</div>
+        {% endif %}
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- Run button -->
+      <button id="run-btn" class="run-btn">
+        <span class="run-icon">🚀</span>
+        Run Magic Formula Scan
+      </button>
+
+      <div class="divider"></div>
+
+      <!-- Exchanges -->
+      <section class="sidebar-section">
+        <div class="section-label">Exchanges</div>
+        <label class="field-label" for="exchanges">Exchanges (comma-separated)</label>
+        <input type="text" id="exchanges" class="input" value="NASDAQ,NYSE,AMEX" placeholder="NASDAQ,NYSE,AMEX">
+      </section>
+
+      <!-- Markets -->
+      <section class="sidebar-section">
+        <div class="section-label">Markets</div>
+        <label class="toggle-row">
+          <input type="checkbox" id="include-intl">
+          <span>Include international stocks</span>
+        </label>
+
+        <div id="country-panel" class="country-panel hidden">
+          <label class="toggle-row tier1-toggle">
+            <input type="checkbox" id="all-t1">
+            <span>Select all Tier 1</span>
+          </label>
+          <div class="country-grid">
+            <div>
+              <div class="tier-label">Tier 1</div>
+              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="US" checked> USA</label>
+              <label class="toggle-row"><input type="checkbox" class="country-cb t1" data-code="SG"> SGP</label>
+              <label class="toggle-row"><input type="checkbox" class="country-cb t1" data-code="GB"> GBR</label>
+              <label class="toggle-row"><input type="checkbox" class="country-cb t1" data-code="CA"> CAN</label>
+            </div>
+            <div>
+              <div class="tier-label">Tier 2</div>
+              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="AU"> AUS</label>
+              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="DE"> DEU</label>
+              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="FR"> FRA</label>
+              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="JP"> JPN</label>
+            </div>
+            <div>
+              <div class="tier-label">Tier 3</div>
+              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="HK"> HKG</label>
+              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="KR"> KOR</label>
+              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="IN"> IND</label>
+              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="CN"> CHN</label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Market cap -->
+      <section class="sidebar-section">
+        <div class="section-label">Filters</div>
+        <label class="field-label" for="min-mcap">Min Market Cap (USD)</label>
+        <input type="number" id="min-mcap" class="input" value="50000000" step="10000000">
+      </section>
+
+      <!-- Scan limit -->
+      <section class="sidebar-section">
+        <div class="section-label">Scan Limit</div>
+        <div class="scan-mode">
+          <label><input type="radio" name="scan-mode" value="slider" checked> Slider</label>
+          <label><input type="radio" name="scan-mode" value="manual"> Manual</label>
+        </div>
+        <div id="limit-slider-wrap">
+          <input type="range" id="limit-slider" min="10" max="4000" value="4000" class="slider">
+          <div class="slider-val"><span id="limit-display">4000</span> stocks</div>
+        </div>
+        <div id="limit-manual-wrap" class="hidden">
+          <input type="number" id="limit-manual" class="input" value="400" min="10" max="10000" step="50">
+        </div>
+      </section>
+
+      <!-- Top N -->
+      <section class="sidebar-section">
+        <label class="field-label" for="top-n">Top N Results to Display</label>
+        <input type="number" id="top-n" class="input" value="30" min="5" max="100">
+      </section>
+
+      <!-- Options -->
+      <section class="sidebar-section">
+        <div class="section-label">Options</div>
+        <label class="toggle-row"><input type="checkbox" id="use-random" checked> Randomize symbol selection</label>
+        <label class="toggle-row"><input type="checkbox" id="use-annual" checked> Use Annual Data (instead of TTM)</label>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- Health checks -->
+      <section class="sidebar-section">
+        <div class="section-label">🩺 Health Checks (Optional)</div>
+        <label class="toggle-row"><input type="checkbox" id="check-debt-revenue"> D/E decreasing + Revenue increasing</label>
+        <label class="toggle-row"><input type="checkbox" id="check-cashflow"> Cash flow exceeds net income</label>
+      </section>
+
+    </div>
+  </aside>
+
+  <!-- ── Main content ──────────────────────────────────────────── -->
+  <main class="main">
+
+    <div class="main-header">
+      <h1 class="main-title">Magic Formula Stock Picker</h1>
+      <p class="main-sub">Based on Joel Greenblatt's strategy using Financial Modeling Prep data.</p>
+    </div>
+
+    <!-- Idle state -->
+    <div id="idle-state" class="idle-state">
+      <div class="idle-icon">📊</div>
+      <h2>Configure your scan and click <em>Run Magic Formula Scan</em></h2>
+      <div class="how-it-works">
+        <h3>How it works</h3>
+        <ol>
+          <li><strong>Select exchanges</strong> — Choose which stock exchanges to scan</li>
+          <li><strong>Set minimum market cap</strong> — Filter out micro-cap stocks</li>
+          <li><strong>Limit scan size</strong> — Control how many stocks to analyze</li>
+          <li><strong>Run the scan</strong> — Screener analyzes fundamentals and ranks stocks</li>
+        </ol>
+        <h3>Magic Formula Metrics</h3>
+        <ul>
+          <li><strong>EY (Earnings Yield)</strong> = EBIT / Enterprise Value</li>
+          <li><strong>ROC (Return on Capital)</strong> = EBIT / (Net Working Capital + Net Fixed Assets)</li>
+          <li><strong>MF Score</strong> = Combined rank (lower is better)</li>
+        </ul>
+        <p class="excl-note">Excludes financial services, utilities, and real estate as per Greenblatt's methodology.</p>
+      </div>
+    </div>
+
+    <!-- Scan in progress -->
+    <div id="scan-state" class="hidden">
+      <div class="scan-header">
+        <div class="scan-title">Scanning…</div>
+        <div id="scan-status" class="scan-status">Initializing</div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-bar-bg">
+          <div id="progress-bar" class="progress-bar-fill" style="width:0%"></div>
+        </div>
+        <div id="progress-label" class="progress-label">0 / 0</div>
+      </div>
+      
+      <div id="warnings" class="warnings"></div>
+      <button id="stop-btn" class="stop-btn">⏹ Stop Scan</button>
+    </div>
+      
+    <!-- Results -->
+    <div id="results-state" class="hidden">
+      <div class="results-header">
+        <h2 id="results-title">🏆 Top Results</h2>
+        <div class="results-meta" id="results-meta"></div>
+      </div>
+
+      <!-- Summary stats -->
+      <div class="stats-row" id="stats-row"></div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table id="results-table">
+          <thead id="results-thead"></thead>
+          <tbody id="results-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Scatter plot -->
+      <div class="chart-section">
+        <h3>📊 Visual Analysis: Quality vs. Value</h3>
+        <div id="scatter-plot"></div>
+      </div>
+
+      <!-- Download -->
+      <button id="download-btn" class="download-btn">💾 Download Results as CSV</button>
+    </div>
+
+    <!-- Error state -->
+    <div id="error-state" class="hidden">
+      <div class="error-box">
+        <div class="error-icon">❌</div>
+        <div id="error-message"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let currentScanId = null;
+let currentResults = null;
+let eventSource = null;
+
+// ── UI helpers ─────────────────────────────────────────────────────────────
+function showOnly(id) {
+  ["idle-state","scan-state","results-state","error-state"].forEach(s => {
+    document.getElementById(s).classList.toggle("hidden", s !== id);
+  });
+}
+
+function setProgress(pct, label) {
+  document.getElementById("progress-bar").style.width = pct + "%";
+  document.getElementById("progress-label").textContent = label;
+}
+
+function setStatus(msg) {
+  document.getElementById("scan-status").textContent = msg;
+}
+
+function addWarning(msg) {
+  const el = document.createElement("div");
+  el.className = "warning-item";
+  el.textContent = "⚠️ " + msg;
+  document.getElementById("warnings").appendChild(el);
+}
+
+function showError(msg) {
+  document.getElementById("error-message").textContent = msg;
+  showOnly("error-state");
+  document.getElementById("run-btn").disabled = false;
+  document.getElementById("run-btn").textContent = "🚀 Run Magic Formula Scan";
+  if (eventSource) { eventSource.close(); eventSource = null; }
+}
+
+// ── Sidebar interactions ───────────────────────────────────────────────────
+document.getElementById("include-intl").addEventListener("change", function() {
+  document.getElementById("country-panel").classList.toggle("hidden", !this.checked);
+});
+
+document.getElementById("all-t1").addEventListener("change", function() {
+  document.querySelectorAll(".country-cb.t1").forEach(cb => cb.checked = this.checked);
+});
+
+document.getElementById("limit-slider").addEventListener("input", function() {
+  document.getElementById("limit-display").textContent = this.value;
+});
+
+document.querySelectorAll("input[name='scan-mode']").forEach(r => {
+  r.addEventListener("change", function() {
+    document.getElementById("limit-slider-wrap").classList.toggle("hidden", this.value !== "slider");
+    document.getElementById("limit-manual-wrap").classList.toggle("hidden", this.value !== "manual");
+  });
+});
+
+// ── Collect params ─────────────────────────────────────────────────────────
+function collectParams() {
+  const scanMode = document.querySelector("input[name='scan-mode']:checked").value;
+  const limit = scanMode === "slider"
+    ? parseInt(document.getElementById("limit-slider").value)
+    : parseInt(document.getElementById("limit-manual").value);
+
+  const includeIntl = document.getElementById("include-intl").checked;
+  let countries = ["US"];
+  if (includeIntl) {
+    countries = Array.from(document.querySelectorAll(".country-cb:checked"))
+      .map(cb => cb.dataset.code);
+  }
+
+  return {
+    api_key: document.getElementById("api_key") ? document.getElementById("api_key").value : "",
+    exchanges: document.getElementById("exchanges").value,
+    min_mcap: parseFloat(document.getElementById("min-mcap").value),
+    limit,
+    top_n: parseInt(document.getElementById("top-n").value),
+    use_random: document.getElementById("use-random").checked,
+    use_annual: document.getElementById("use-annual").checked,
+    check_debt_revenue: document.getElementById("check-debt-revenue").checked,
+    check_cashflow: document.getElementById("check-cashflow").checked,
+    selected_countries: countries,
+  };
+}
+
+// ── Run scan ───────────────────────────────────────────────────────────────
+document.getElementById("run-btn").addEventListener("click", async () => {
+  if (eventSource) { eventSource.close(); eventSource = null; }
+  document.getElementById("warnings").innerHTML = "";
+  currentResults = null;
+  currentScanId = null;
+
+  const params = collectParams();
+  document.getElementById("run-btn").disabled = true;
+  document.getElementById("run-btn").textContent = "⏳ Running…";
+  showOnly("scan-state");
+  setStatus("Starting scan…");
+  setProgress(0, "0 / 0");
+
+  let res;
+  try {
+    res = await fetch("/scan", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(params)
+    });
+  } catch(e) {
+    showError("Network error: " + e.message);
+    return;
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({error: "Unknown error"}));
+    showError(err.error || "Failed to start scan");
+    return;
+  }
+
+  const { scan_id } = await res.json();
+  currentScanId = scan_id;
+
+  // Open SSE connection
+  eventSource = new EventSource(`/progress/${scan_id}`);
+
+  eventSource.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+
+    if (msg.type === "progress") {
+      setProgress(msg.pct, `${msg.completed} / ${msg.total}  —  ${msg.symbol}`);
+    } else if (msg.type === "status") {
+      setStatus(msg.message);
+} else if (msg.type === "warning") {
+      addWarning(msg.message);
+    } else if (msg.type === "done") {
+      eventSource.close();
+      eventSource = null;
+      fetchAndRenderResults(scan_id, msg.count, msg.total_analyzed, msg.summary);
+    } else if (msg.type === "error") {
+      showError(msg.message);
+    }
+  };
+
+  eventSource.onerror = () => {
+    if (eventSource && eventSource.readyState === EventSource.CLOSED) return;
+    showError("Lost connection to server. Check the server logs.");
+    if (eventSource) { eventSource.close(); eventSource = null; }
+  };
+});
+
+// ── Fetch and render results ───────────────────────────────────────────────
+async function fetchAndRenderResults(scan_id, count, total_analyzed, summary) {
+  const res = await fetch(`/results/${scan_id}`);
+  if (!res.ok) {
+    showError("Failed to fetch results"); return;  }
+  
+  const data = await res.json();
+  currentResults = data.results;
+  currentScanId = scan_id;
+  renderResults(data.results, count, total_analyzed, summary);
+  document.getElementById("run-btn").disabled = false;
+  document.getElementById("run-btn").textContent = "🚀 Run Magic Formula Scan";
+}
+
+function fmt(val, col) {
+  if (val === null || val === undefined) return "—";
+  if (col === "marketCap" || col === "EV") {
+    return val >= 1e9 ? `$${(val/1e9).toFixed(2)}B` : `$${(val/1e6).toFixed(1)}M`;
+  }
+  if (col === "EBIT") {
+    return Math.abs(val) >= 1e9 ? `$${(val/1e9).toFixed(2)}B` : `$${(val/1e6).toFixed(1)}M`;
+  }
+  if (col === "EY" || col === "ROC") {
+    return (val * 100).toFixed(2) + "%";
+  }
+  if (col === "MF_score" || col === "EY_rank" || col === "ROC_rank") {
+    return Math.round(val);
+  }
+  return val;
+}
+
+const COL_LABELS = {
+  ticker:"Ticker", name:"Name", exchange:"Exchange", country:"Country",
+  sector:"Sector", industry:"Industry", marketCap:"Mkt Cap", EV:"EV",
+  EBIT:"EBIT", EY:"EY", ROC:"ROC", EY_rank:"EY Rank", ROC_rank:"ROC Rank", MF_score:"MF Score"
+};
+
+function renderResults(results, count, total_analyzed, summary) {
+  if (!results || results.length === 0) {
+    showError("No results to display.");
+    return;
+  }
+
+  // Title & meta
+  document.getElementById("results-title").textContent = `🏆 Top ${count} Stocks by Magic Formula`;
+  document.getElementById("results-meta").textContent =
+    `${total_analyzed.toLocaleString()} stocks analyzed · ${count} qualifying results`;
+
+  // Stats
+  const avgEY = results.reduce((s,r) => s + (r.EY||0), 0) / results.length;
+  const avgROC = results.reduce((s,r) => s + (r.ROC||0), 0) / results.length;
+  const topScore = results[0]?.MF_score ?? 0;
+  document.getElementById("stats-row").innerHTML = `
+    <div class="stat-card"><div class="stat-val">${total_analyzed.toLocaleString()}</div><div class="stat-label">Stocks Analyzed</div></div>
+    <div class="stat-card"><div class="stat-val">${(avgEY*100).toFixed(2)}%</div><div class="stat-label">Avg Earnings Yield</div></div>
+    <div class="stat-card"><div class="stat-val">${(avgROC*100).toFixed(2)}%</div><div class="stat-label">Avg ROC</div></div>
+    <div class="stat-card"><div class="stat-val">${Math.round(topScore)}</div><div class="stat-label">Top MF Score</div></div>
+    <div class="stat-card"><div class="stat-val">${summary?.elapsed_str ?? '—'}</div><div class="stat-label">Scan Time</div></div>
+  `;
+
+  // Table
+  const cols = Object.keys(results[0]);
+  const thead = document.getElementById("results-thead");
+  const tbody = document.getElementById("results-tbody");
+  thead.innerHTML = `<tr>${cols.map(c => `<th>${COL_LABELS[c]||c}</th>`).join("")}</tr>`;
+  tbody.innerHTML = results.map((row, i) =>
+    `<tr class="${i % 2 === 0 ? '' : 'alt'}">
+      ${cols.map(c => `<td>${fmt(row[c], c)}</td>`).join("")}
+    </tr>`
+  ).join("");
+
+  // Scatter plot
+  const sectors = [...new Set(results.map(r => r.sector || "Unknown"))];
+  const palette = ["#e63946","#2a9d8f","#e9c46a","#264653","#f4a261","#a8dadc","#457b9d","#1d3557","#9b2226","#005f73"];
+  const traces = sectors.map((sector, si) => {
+    const pts = results.filter(r => (r.sector || "Unknown") === sector);
+    return {
+      x: pts.map(r => r.EY),
+      y: pts.map(r => r.ROC),
+      text: pts.map(r => r.ticker),
+      customdata: pts.map(r => [r.name, (r.marketCap/1e9).toFixed(2)]),
+      mode: "markers+text",
+      type: "scatter",
+      name: sector,
+      marker: {
+        size: pts.map(r => Math.max(8, Math.min(24, Math.sqrt(r.marketCap/1e8)))),
+        color: palette[si % palette.length],
+        opacity: 0.85,
+      },
+      textposition: "top center",
+      hovertemplate: "<b>%{text}</b><br>%{customdata[0]}<br>EY: %{x:.2%}<br>ROC: %{y:.2%}<br>Mkt Cap: $%{customdata[1]}B<extra></extra>",
+    };
+  });
+
+  Plotly.newPlot("scatter-plot", traces, {
+    paper_bgcolor: "rgba(0,0,0,0)",
+    plot_bgcolor: "rgba(0,0,0,0)",
+    font: { family: "DM Mono, monospace", color: "#c9d1d9" },
+    xaxis: { title: "Earnings Yield (Cheapness)", tickformat: ".1%", gridcolor: "#30363d", zerolinecolor: "#30363d" },
+    yaxis: { title: "Return on Capital (Quality)", tickformat: ".1%", gridcolor: "#30363d", zerolinecolor: "#30363d" },
+    legend: { bgcolor: "rgba(0,0,0,0)", bordercolor: "#30363d" },
+    margin: { l: 60, r: 20, t: 20, b: 60 },
+  }, { responsive: true, displayModeBar: false });
+
+  showOnly("results-state");
+}
+
+// ── Download ───────────────────────────────────────────────────────────────
+document.getElementById("download-btn").addEventListener("click", () => {
+  if (!currentScanId) return;
+  window.location.href = `/download/${currentScanId}`;
+});
+
+// ── Stop scan ─────────────────────────────────────────────────────────────
+document.getElementById("stop-btn").addEventListener("click", async () => {
+  if (!currentScanId) return;
+  await fetch(`/stop/${currentScanId}`, { method: "POST" });
+  if (eventSource) { eventSource.close(); eventSource = null; }
+  showError("Scan stopped.");
+});
+</script>
+</body>
+</html>

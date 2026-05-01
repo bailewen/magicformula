@@ -11,11 +11,14 @@ Try it now: [magic.omarbelove.com](https://magic.omarbelove.com)
 - 12 global markets with quality tier ratings
 - Parallel processing (analyze 400+ stocks in less than a minute)
 - SQLite caching (uncached full market run ~30 min; repeated runs ~5-6 min)
+- Real-time progress streaming via Server-Sent Events (SSE)
+- Interactive scatter plot (Quality vs. Value)
 - CSV export with full metrics including goodwill and intangibles
 - TTM (trailing twelve month) calculations (default) with option to use annual reports instead
 - Excludes financials, utilities, REITs per Greenblatt methodology
 - Data sanity filters: negative EBIT exclusion, EV/market cap plausibility check
 - Optional health checks for extra scrutiny
+- Cancellable scans via Stop button
 
 ## Market Coverage
 
@@ -41,15 +44,13 @@ Try it now: [magic.omarbelove.com](https://magic.omarbelove.com)
 
 ### Option 1: Use Hosted Version (Easiest)
 1. Visit [magic.omarbelove.com](https://magic.omarbelove.com)
-2. Get an API key from [Financial Modeling Prep](https://financialmodelingprep.com/developer/docs/pricing) (Starter plan: $19/mo)
-3. Paste key in sidebar
-4. Run your scan
+2. Run your scan — no API key needed
 
 ### Option 2: Run Locally
 
 **Requirements:**
 - Python 3.8+
-- FMP API key (Starter plan or higher - $19/mo)
+- FMP API key (Starter plan or higher - $19/mo) — get one at [financialmodelingprep.com](https://financialmodelingprep.com/developer/docs/pricing)
 
 **Installation:**
 ```bash
@@ -58,11 +59,13 @@ cd magicformula
 pip install -r requirements.txt
 ```
 
-**Run Streamlit UI:**
+**Run Flask UI:**
 ```bash
 export FMP_API_KEY="your_key_here"
-streamlit run app.py
+python app.py
 ```
+
+Then open [http://127.0.0.1:5000](http://127.0.0.1:5000) in your browser. If you haven't set the environment variable, you can paste your API key directly in the sidebar.
 
 **Run CLI:**
 ```bash
@@ -126,11 +129,56 @@ Export to CSV for further analysis or portfolio tracking.
 export FMP_API_KEY="your_key_here"
 ```
 
-**For Streamlit Cloud:**
-Add to app settings > Secrets:
-```toml
-FMP_API_KEY = "your_key_here"
+Or add to `~/.bashrc` for persistence:
+```bash
+export FMP_API_KEY="your_key_here"
 ```
+
+**For the hosted droplet:**
+Add to the environment in your systemd service file:
+```ini
+Environment="FMP_API_KEY=your_key_here"
+```
+
+## Deployment (DigitalOcean / Production)
+
+**Important:** Do not use the Flask development server in production. Use Gunicorn with a single worker to ensure scan state is shared correctly across all requests:
+
+```bash
+gunicorn -w 1 --threads 4 app:app
+```
+
+**Why `-w 1`:** Scan state is held in memory (`_scans` dict). Multiple Gunicorn workers would each have their own copy, causing SSE progress streams to fail. A single worker with multiple threads handles concurrent requests correctly without this issue.
+
+**Example systemd service:**
+```ini
+[Unit]
+Description=Magic Formula Screener
+After=network.target
+
+[Service]
+User=streamlit
+WorkingDirectory=/home/streamlit/magicformula
+Environment="FMP_API_KEY=your_key_here"
+ExecStart=/home/streamlit/magicformula/venv/bin/gunicorn -w 1 --threads 4 -b 0.0.0.0:5000 app:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/` | GET | Main UI |
+| `/scan` | POST | Start a new scan, returns `scan_id` |
+| `/progress/<scan_id>` | GET | SSE stream of real-time progress |
+| `/stop/<scan_id>` | POST | Cancel a running scan |
+| `/results/<scan_id>` | GET | Fetch final ranked results as JSON |
+| `/summary/<scan_id>` | GET | Fetch scan summary stats as JSON |
+| `/download/<scan_id>` | GET | Download results as CSV |
+| `/chart/<scan_id>` | GET | Standalone scatter plot and stats report |
 
 ## Contributing
 
@@ -146,7 +194,6 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 - [Joel Greenblatt's Magic Formula](https://www.magicformulainvesting.com/)
 - [The Little Book That Beats the Market](https://www.amazon.com/Little-Book-That-Beats-Market/dp/0471733067)
 - [FMP API Documentation](https://site.financialmodelingprep.com/developer/docs)
-- [Streamlit Documentation](https://docs.streamlit.io/)
 
 ## Disclaimer
 
@@ -162,7 +209,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 - Joel Greenblatt for the Magic Formula methodology
 - Financial Modeling Prep for comprehensive market data
-- Streamlit for the excellent web framework
 
 ---
 
