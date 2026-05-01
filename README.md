@@ -9,11 +9,12 @@ Try it now: [magic.omarbelove.com](https://magic.omarbelove.com)
 ## Features
 - Magic Formula ranking (Earnings Yield + Return on Capital)
 - 12 global markets with quality tier ratings
-- Parallel processing (analyze 400+ stocks in les than a minute)
-- Cached data (uncached run of full marker ~ 30 min; repeated runs ~ 5-6 min)
-- CSV export with full metrics
-- TTM (trailing twelve month) calculations (defaiult) with option to use annual reporst instead
+- Parallel processing (analyze 400+ stocks in less than a minute)
+- SQLite caching (uncached full market run ~30 min; repeated runs ~5-6 min)
+- CSV export with full metrics including goodwill and intangibles
+- TTM (trailing twelve month) calculations (default) with option to use annual reports instead
 - Excludes financials, utilities, REITs per Greenblatt methodology
+- Data sanity filters: negative EBIT exclusion, EV/market cap plausibility check
 - Optional health checks for extra scrutiny
 
 ## Market Coverage
@@ -39,8 +40,8 @@ Try it now: [magic.omarbelove.com](https://magic.omarbelove.com)
 ## Quick Start
 
 ### Option 1: Use Hosted Version (Easiest)
-1. Visit [magicformula.streamlit.app](https://your-url-here.streamlit.app)
-2. Get API key from [Financial Modeling Prep](https://financialmodelingprep.com/developer/docs/pricing) (Starter plan: $19/mo)
+1. Visit [magic.omarbelove.com](https://magic.omarbelove.com)
+2. Get an API key from [Financial Modeling Prep](https://financialmodelingprep.com/developer/docs/pricing) (Starter plan: $19/mo)
 3. Paste key in sidebar
 4. Run your scan
 
@@ -88,6 +89,12 @@ Automatically excludes sectors that don't work well with the formula:
 - Utilities
 - Real Estate / REITs
 
+Additionally excludes individual stocks where:
+- EBIT is negative
+- Enterprise Value is implausibly small relative to market cap (likely data error)
+- ROC exceeds 1000% (likely data error)
+- Capital base is below $10M
+
 ## CLI Options
 ```bash
 python magicformula.py \
@@ -95,14 +102,18 @@ python magicformula.py \
   --top 30 \               # Number of results
   --limit 400 \            # Max stocks to analyze
   --min-mcap 50000000 \    # Minimum market cap ($50M)
-  --random                 # Randomizes symbol selection (avoids alphabetical bias with small samples)
+  --annual \               # Use annual reports instead of TTM
+  --no-intangibles \       # Exclude goodwill/intangibles from capital calculation
+  --health-checks \        # Run D/E and cash flow quality checks on top candidates
+  --random                 # Randomize symbol selection (avoids alphabetical bias with small samples)
 ```
 
-## Output Example
+## Output
 
 Results include:
-- **Basic Info**: Ticker, Name, Exchange, Country
-- **Fundamentals**: Market Cap, Enterprise Value, EBIT
+- **Basic Info**: Ticker, Name, Exchange, Country, Sector, Industry
+- **Fundamentals**: Market Cap, Enterprise Value, EBIT, Cash, Total Debt
+- **Balance Sheet**: Net Working Capital, Net Fixed Assets, Capital Base, Goodwill, Intangibles
 - **Magic Formula Metrics**: Earnings Yield, Return on Capital
 - **Rankings**: Individual ranks and combined Magic Formula score
 
@@ -123,10 +134,9 @@ FMP_API_KEY = "your_key_here"
 
 ## Contributing
 
-Contributions welcome! Areas for improvement:
+Contributions welcome. Areas for improvement:
 - Backtesting framework
 - Portfolio tracking features
-- Better error handling
 - Additional screening criteria
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details.
@@ -140,8 +150,8 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Disclaimer
 
-This tool is for educational and research purposes only. Not financial advice. 
-Past performance does not guarantee future results. Always do your own research 
+This tool is for educational and research purposes only. Not financial advice.
+Past performance does not guarantee future results. Always do your own research
 and consult with a qualified financial advisor before making investment decisions.
 
 ## License
@@ -153,7 +163,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - Joel Greenblatt for the Magic Formula methodology
 - Financial Modeling Prep for comprehensive market data
 - Streamlit for the excellent web framework
-- The open source community
 
 ---
 
