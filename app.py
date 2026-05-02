@@ -230,6 +230,7 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue):
         records = []
         skipped = 0
         filtered = 0
+        qualified = 0
         total = len(all_symbols)
         completed = 0
 
@@ -252,6 +253,7 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue):
                     rec = future.result(timeout=5)
                     if rec and rec.get("marketCap", 0) >= min_mcap:
                         records.append(rec)
+                        qualified += 1
                     elif rec:
                         filtered += 1  # returned data but failed mcap
                     else:
@@ -267,21 +269,8 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue):
                     "pct": pct,
                     "skipped": skipped,
                     "filtered": filtered,
+                    "qualified": qualified,
                 })
-
-                if _scans[scan_id].get("cancelled"):
-                    _push(q, {"type": "error", "message": "Scan cancelled."})
-                    _finalize(scan_id, error="Cancelled")
-                    return
-
-                try:
-                    rec = future.result(timeout=5)
-                    if rec and rec.get("marketCap", 0) >= min_mcap:
-                        records.append(rec)
-                    else:
-                        filtered +=1
-                except Exception:
-                    skipped +=1
 
         if not records:
             _push(q, {"type": "error", "message": "No qualifying stocks found. Try lowering min market cap or increasing scan limit."})

@@ -182,10 +182,12 @@
         </div>
         <div id="progress-label" class="progress-label">0 / 0</div>
         <div class="skip-stats">
-          <span class="skip-label">Skipped:</span>
-          <span id="skipped-counter">0 (incomplete data / errors)</span>
-          <span class="skip-label">Filtered:</span>
-          <span id="filtered-counter">0 (below minimum market cap)</span>
+          <span class="skip-label">Missing data:</span>
+          <span id="skipped-counter">0</span>
+          <span class="skip-label">Below mcap:</span>
+          <span id="filtered-counter">0</span>
+          <span class="skip-label">Qualified:</span>
+          <span id="qualified-counter">0</span>
         </div>
       </div>
       <div id="warnings" class="warnings"></div>
@@ -359,8 +361,9 @@ document.getElementById("run-btn").addEventListener("click", async () => {
 
   if (msg.type === "progress") {
       setProgress(msg.pct, `Scanned: ${msg.completed} / ${msg.total}  —  ${msg.symbol}`);
-      document.getElementById("skipped-counter").textContent = `${msg.skipped} (incomplete data / errors)`;
-      document.getElementById("filtered-counter").textContent = `${msg.filtered} (below minimum market cap)`;
+      document.getElementById("skipped-counter").textContent = `${msg.skipped}`;
+      document.getElementById("filtered-counter").textContent = `${msg.filtered}`;
+      document.getElementById("qualified-counter").textContent = `${msg.qualified}`;
     } else if (msg.type === "status") {
       setStatus(msg.message);
     } else if (msg.type === "warning") {
