@@ -181,12 +181,17 @@
           <div id="progress-bar" class="progress-bar-fill" style="width:0%"></div>
         </div>
         <div id="progress-label" class="progress-label">0 / 0</div>
+        <div class="skip-stats">
+          <span class="skip-label">Skipped:</span>
+          <span id="skipped-counter">0 (incomplete data / errors)</span>
+          <span class="skip-label">Filtered:</span>
+          <span id="filtered-counter">0 (below minimum market cap)</span>
+        </div>
       </div>
-      
       <div id="warnings" class="warnings"></div>
       <button id="stop-btn" class="stop-btn">⏹ Stop Scan</button>
     </div>
-      
+
     <!-- Results -->
     <div id="results-state" class="hidden">
       <div class="results-header">
@@ -352,11 +357,13 @@ document.getElementById("run-btn").addEventListener("click", async () => {
   eventSource.onmessage = (e) => {
     const msg = JSON.parse(e.data);
 
-    if (msg.type === "progress") {
-      setProgress(msg.pct, `${msg.completed} / ${msg.total}  —  ${msg.symbol}`);
+  if (msg.type === "progress") {
+      setProgress(msg.pct, `Scanned: ${msg.completed} / ${msg.total}  —  ${msg.symbol}`);
+      document.getElementById("skipped-counter").textContent = `${msg.skipped} (incomplete data / errors)`;
+      document.getElementById("filtered-counter").textContent = `${msg.filtered} (below minimum market cap)`;
     } else if (msg.type === "status") {
       setStatus(msg.message);
-} else if (msg.type === "warning") {
+    } else if (msg.type === "warning") {
       addWarning(msg.message);
     } else if (msg.type === "done") {
       eventSource.close();

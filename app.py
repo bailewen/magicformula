@@ -173,6 +173,7 @@ def _evict_old_scans(max_age_seconds=7200):
 
 def _run_scan(scan_id: str, params: dict, q: queue.Queue):
     scan_start = time.time()
+
     try:
         exchanges_raw = params.get("exchanges", "NASDAQ,NYSE,AMEX")
         exchanges_list = [x.strip() for x in exchanges_raw.split(",") if x.strip()]
@@ -227,6 +228,8 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue):
         _push(q, {"type": "status", "message": "Pulling fundamentals…", "step": 2})
 
         records = []
+        skipped = 0
+        filtered = 0
         total = len(all_symbols)
         completed = 0
 
@@ -240,12 +243,30 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue):
                 completed += 1
                 pct = round(completed / total * 100)
 
+                if _scans[scan_id].get("cancelled"):
+                    _push(q, {"type": "error", "message": "Scan cancelled."})
+                    _finalize(scan_id, error="Cancelled")
+                    return
+
+                try:
+                    rec = future.result(timeout=5)
+                    if rec and rec.get("marketCap", 0) >= min_mcap:
+                        records.append(rec)
+                    elif rec:
+                        filtered += 1  # returned data but failed mcap
+                    else:
+                        skipped += 1  # returned None — missing/incomplete data
+                except Exception:
+                    skipped += 1
+
                 _push(q, {
                     "type": "progress",
                     "symbol": sym,
                     "completed": completed,
                     "total": total,
                     "pct": pct,
+                    "skipped": skipped,
+                    "filtered": filtered,
                 })
 
                 if _scans[scan_id].get("cancelled"):
@@ -254,11 +275,13 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue):
                     return
 
                 try:
-                    rec = future.result(timeout=10)
+                    rec = future.result(timeout=5)
                     if rec and rec.get("marketCap", 0) >= min_mcap:
                         records.append(rec)
+                    else:
+                        filtered +=1
                 except Exception:
-                    pass
+                    skipped +=1
 
         if not records:
             _push(q, {"type": "error", "message": "No qualifying stocks found. Try lowering min market cap or increasing scan limit."})

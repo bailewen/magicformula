@@ -145,7 +145,7 @@ a:hover { text-decoration: underline; }
 .progress-wrap { margin-bottom: 10px; }
 .progress-bar-bg { height: 8px; background: var(--bg-3); border-radius: 99px; overflow: hidden; margin-bottom: 6px; border: 1px solid var(--border); }
 .progress-bar-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.3s ease; }
-.progress-label { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+.progress-label { font-size: 14px; color: var(--text-muted); font-family: var(--font-mono); }
 
 .warnings { margin-top: 10px; }
 .warning-item { font-size: 12px; color: var(--warning-tx); background: var(--warning-bg); border: 1px solid var(--warning-bdr); border-radius: var(--radius); padding: 5px 10px; margin-bottom: 4px; }
@@ -180,3 +180,14 @@ tr:hover td { background: var(--accent-dim); }
 #error-message { color: var(--red); font-size: 13px; line-height: 1.6; }
 
 .hidden { display: none !important; }
+.skip-stats {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 2px 8px;
+    color: #888;
+    font-size: 0.85em;
+}
+
+.skip-label {
+    text-align: right;
+}
