@@ -141,13 +141,19 @@
   </aside>
 
   <!-- ── Main content ──────────────────────────────────────────── -->
-  <main class="main">
+<main class="main">
 
-    <div class="main-header">
-      <h1 class="main-title">Magic Formula Stock Picker</h1>
-      <p class="main-sub">Based on Joel Greenblatt's strategy using Financial Modeling Prep data.</p>
-    </div>
+  <div class="main-header">
+    <h1 class="main-title">Magic Formula</h1>
+    <p class="main-sub">Based on Joel Greenblatt's strategy using Financial Modeling Prep data.</p>
+  </div>
 
+ <div class="tab-bar">
+    <button class="tab active" data-tab="screener">Screener</button>
+    <button class="tab" data-tab="ticker">Single Ticker</button>
+  </div>
+
+  <div id="tab-screener">
     <!-- Idle state -->
     <div id="idle-state" class="idle-state">
       <div class="idle-icon">📊</div>
@@ -226,8 +232,13 @@
         <div id="error-message"></div>
       </div>
     </div>
+</div><!-- end tab-screener -->
 
-  </main>
+  <div id="tab-ticker" class="hidden">
+    <p>Single Ticker coming soon</p>
+  </div>
+
+</main>
 </div>
 
 <script>
@@ -535,6 +546,17 @@ document.getElementById("stop-btn").addEventListener("click", async () => {
   if (eventSource) { eventSource.close(); eventSource = null; }
   showError("Scan stopped.");
 });
+// ── Tab switching ──────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-screener').classList.add('hidden');
+    document.getElementById('tab-ticker').classList.add('hidden');
+    document.getElementById(`tab-${tab.dataset.tab}`).classList.remove('hidden');
+  });
+});
+
 </script>
 </body>
 </html>

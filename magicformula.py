@@ -437,6 +437,15 @@ def _init_db():
             PRIMARY KEY (ticker, period)
         )
     """)
+    conn.execute("""
+            CREATE TABLE IF NOT EXISTS raw_json_vault (
+                ticker TEXT NOT NULL,
+                endpoint TEXT NOT NULL,
+                json_blob TEXT NOT NULL,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (ticker, endpoint)
+            )
+        """)
     conn.commit()
     conn.close()
 

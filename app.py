@@ -9,6 +9,7 @@ import io
 import uuid
 import random
 import pandas as pd
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Add current directory to path so magicformula imports correctly
@@ -126,6 +127,39 @@ def download_csv(scan_id):
         download_name=f"magic_formula_{timestamp}.csv"
     )
 
+# ── Single stock detail page — queries raw_json_vault and company_cache ──────
+@app.route("/stock/<ticker>")
+def stock_detail(ticker):
+    ticker = ticker.upper()
+    conn = sqlite3.connect(mf.DB_PATH)
+
+    # get all blobs for this ticker
+    rows = conn.execute(
+        "SELECT endpoint, json_blob, last_updated FROM raw_json_vault WHERE ticker = ?",
+        (ticker,)
+    ).fetchall()
+
+    # get MF metrics from company_cache
+    mf_row = conn.execute(
+        "SELECT EY, ROC FROM company_cache WHERE ticker = ? ORDER BY last_updated DESC LIMIT 1",
+        (ticker,)
+    ).fetchone()
+
+    conn.close()
+
+    if not rows:
+        return render_template("stock.html", ticker=ticker, not_found=True)
+
+    data = {row[0]: json.loads(row[1]) for row in rows}
+    last_updated = rows[0][2]
+
+    return render_template("stock.html",
+        ticker=ticker,
+        data=data,
+        last_updated=last_updated,
+        mf_row=mf_row,
+        not_found=False
+    )
 
 # ── Background scan logic ──────────────────────────────────────────────────────
 
