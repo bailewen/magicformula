@@ -1,0 +1,75 @@
+
+============================================================
+HPQ — 2026-01-31 (Q1)
+============================================================
+Field                                              Value
+---------------------------------------------------------
+totalCurrentAssets                           22226000000
+totalCurrentLiabilities                      29290000000
+cashAndShortTermInvestments                   3154000000
+cashAndCashEquivalents                        3154000000
+totalDebt                                     9699000000
+shortTermDebt                                  861000000
+netReceivables                                5332000000
+inventory                                     8737000000
+otherCurrentAssets                            5003000000
+accountPayables                              18220000000
+otherCurrentLiabilities                      10209000000
+taxPayables                                            0
+deferredRevenue                                        0
+
+NWC Calculations
+  Standard (TCA - TCL):                        -7,064,000,000
+  Modified (TCA-cash) - (TCL-debt):            -9,357,000,000
+  Operating (OCA - OCL):                       -9,357,000,000
+  Difference modified vs operating:                         0
+
+============================================================
+CRCT — 2025-12-31 (Q4)
+============================================================
+Field                                              Value
+---------------------------------------------------------
+totalCurrentAssets                             499591000
+totalCurrentLiabilities                        221075000
+cashAndShortTermInvestments                    275650000
+cashAndCashEquivalents                         256216000
+totalDebt                                       11624000
+shortTermDebt                                    3606000
+netReceivables                                  92011000
+inventory                                      102664000
+otherCurrentAssets                              29266000
+accountPayables                                 71553000
+otherCurrentLiabilities                         95507000
+taxPayables                                            0
+deferredRevenue                                 50409000
+
+NWC Calculations
+  Standard (TCA - TCL):                           278,516,000
+  Modified (TCA-cash) - (TCL-debt):                 6,472,000
+  Operating (OCA - OCL):                           56,881,000
+  Difference modified vs operating:               -50,409,000
+
+============================================================
+PTCT — 2025-12-31 (Q4)
+============================================================
+Field                                              Value
+---------------------------------------------------------
+totalCurrentAssets                            2273948000
+totalCurrentLiabilities                        968427000
+cashAndShortTermInvestments                   1945371000
+cashAndCashEquivalents                         984648000
+totalDebt                                      492281000
+shortTermDebt                                  302115000
+netReceivables                                 181621000
+inventory                                       79647000
+otherCurrentAssets                              67309000
+accountPayables                                 45487000
+otherCurrentLiabilities                        618785000
+taxPayables                                            0
+deferredRevenue                                  2040000
+
+NWC Calculations
+  Standard (TCA - TCL):                         1,305,521,000
+  Modified (TCA-cash) - (TCL-debt):              -337,735,000
+  Operating (OCA - OCL):                         -335,695,000
+  Difference modified vs operating:                -2,040,000

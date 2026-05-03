@@ -121,7 +121,7 @@ def fmp_get(path: str, params: Optional[Dict[str, Any]] = None, retries: int = 3
     url = f"{FMP_BASE}{path}"
     for a in range(retries):
         limiter.wait()  # reuse your existing RateLimiter
-        r = S.get(url, params=params, timeout=5)
+        r = S.get(url, params=params, timeout=30)
         if r.status_code == 429:
             time.sleep(backoff * (a + 1))
             continue
@@ -179,7 +179,7 @@ def fmp_income(ticker: str, annual: bool = False) -> List[Dict[str, Any]]:
 def fmp_balance(ticker: str) -> List[Dict[str, Any]]:
     return fmp_get(f"/balance-sheet-statement/{ticker}", {"period": "quarter", "limit": 1}) or []
 
-def check_financial_health(symbol: str,
+def check_financial_health(symbol: str, 
     check_debt_revenue: bool = False,
     check_cashflow_quality: bool = False,
     debt_revenue_quarters: int = 6,
@@ -378,6 +378,7 @@ def pull_company(symbol: str, annual: bool = False, subtract_intangibles: bool =
             return {"type": "skip", "ticker": symbol, "name": company_name,
                     "reason": "ROC > 1000% (data error)"}
 
+
         return {
             "type": "success",
             "ticker": symbol,
@@ -435,6 +436,15 @@ def _init_db():
             Intangibles REAL,
             last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (ticker, period)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS stock_fundamentals (
+            ticker TEXT PRIMARY KEY,
+            profile_data TEXT,
+            ratios_data TEXT,
+            key_metrics_data TEXT,
+            fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
     conn.commit()
@@ -553,6 +563,66 @@ def fetch_company_with_cache(symbol: str, annual: bool = False, subtract_intangi
 
     return rec
 
+# -------------------- Deep Scan --------------------
+
+def deep_scan_ticker(ticker: str) -> bool:
+    """Fetch profile, ratios, and key metrics blobs for a single ticker and upsert to stock_fundamentals."""
+    try:
+        profile = fmp_get(f"/profile/{ticker}") or []
+        ratios = fmp_get(f"/ratios-ttm/{ticker}") or []
+        key_metrics = fmp_get(f"/key-metrics-ttm/{ticker}") or []
+
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("""
+            INSERT INTO stock_fundamentals (ticker, profile_data, ratios_data, key_metrics_data, fetched_at)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(ticker) DO UPDATE SET
+                profile_data = excluded.profile_data,
+                ratios_data = excluded.ratios_data,
+                key_metrics_data = excluded.key_metrics_data,
+                fetched_at = CURRENT_TIMESTAMP
+        """, (
+            ticker,
+            json.dumps(profile),
+            json.dumps(ratios),
+            json.dumps(key_metrics),
+        ))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"  Deep scan failed for {ticker}: {e}")
+        return False
+
+
+def run_deep_scan():
+    """Fetch rich FMP blobs for all tickers in company_cache and store in stock_fundamentals."""
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute("SELECT DISTINCT ticker FROM company_cache ORDER BY ticker").fetchall()
+    conn.close()
+
+    tickers = [r[0] for r in rows]
+    if not tickers:
+        print("Deep scan: no tickers found in company_cache. Run a regular scan first.")
+        return
+
+    print(f"Deep scan: fetching fundamentals for {len(tickers)} tickers (3 API calls each)...")
+    start = time.time()
+    ok = fail = 0
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {executor.submit(deep_scan_ticker, t): t for t in tickers}
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Deep scan"):
+            if future.result():
+                ok += 1
+            else:
+                fail += 1
+
+    elapsed = time.time() - start
+    m, s = divmod(int(elapsed), 60)
+    print(f"Deep scan complete: {ok} ok, {fail} failed — {m}m {s}s")
+
+
 # -------------------- Ranking --------------------
 
 def magic_formula_rank(df: pd.DataFrame) -> pd.DataFrame:
@@ -590,8 +660,14 @@ def main():
     ap.add_argument("--no-intangibles", action="store_false", dest="subtract_intangibles",
                     help="Exclude goodwill/intangibles from capital calculation")
     ap.set_defaults(subtract_intangibles=True)
+    ap.add_argument("--deep-scan", action="store_true",
+                    help="Fetch and cache rich FMP blobs for all tickers in company_cache (runs weekly via cron)")
 
     args = ap.parse_args()
+
+    if args.deep_scan:
+        run_deep_scan()
+        return
 
  # Parse countries
     if args.tier1:
@@ -635,7 +711,7 @@ def main():
                    in symbols}
         for future in tqdm(as_completed(futures), total=len(futures), desc="Pulling fundamentals"):
             try:
-                rec = future.result(timeout=5)
+                rec = future.result(timeout=10)
                 if rec:
                     if rec.get("type") == "success" and rec.get("marketCap", 0) >= args.min_mcap:
                         records.append(rec)

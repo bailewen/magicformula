@@ -1,0 +1,51 @@
+
+HPQ balance sheet fields:
+Field                                              Value
+---------------------------------------------------------
+goodwill                                      8724000000
+intangibleAssets                                       0
+goodwillAndIntangibleAssets                   8724000000
+propertyPlantEquipmentNet                     3053000000
+totalAssets                                  41535000000
+totalCurrentAssets                           22226000000
+totalCurrentLiabilities                      29290000000
+cashAndShortTermInvestments                   3154000000
+totalDebt                                     9699000000
+
+All available fields in response:
+  acceptedDate                             2026-02-24 18:31:06
+  accountPayables                          18220000000
+  calendarYear                             2026
+  cashAndCashEquivalents                   3154000000
+  cashAndShortTermInvestments              3154000000
+  cik                                      0000047217
+  date                                     2026-01-31
+  fillingDate                              2026-02-25
+  finalLink                                https://www.sec.gov/Archives/edgar/data/47217/000004721726000011/hpq-20260131.htm
+  goodwill                                 8724000000
+  goodwillAndIntangibleAssets              8724000000
+  inventory                                8737000000
+  link                                     https://www.sec.gov/Archives/edgar/data/47217/000004721726000011/0000047217-26-000011-index.htm
+  longTermDebt                             8838000000
+  netDebt                                  6545000000
+  netReceivables                           5332000000
+  otherCurrentAssets                       5003000000
+  otherCurrentLiabilities                  10209000000
+  otherNonCurrentAssets                    7532000000
+  othertotalStockholdersEquity             3407000000
+  period                                   Q1
+  propertyPlantEquipmentNet                3053000000
+  reportedCurrency                         USD
+  shortTermDebt                            861000000
+  symbol                                   HPQ
+  totalAssets                              41535000000
+  totalCurrentAssets                       22226000000
+  totalCurrentLiabilities                  29290000000
+  totalDebt                                9699000000
+  totalEquity                              3407000000
+  totalLiabilities                         38128000000
+  totalLiabilitiesAndStockholdersEquity    41535000000
+  totalLiabilitiesAndTotalEquity           41535000000
+  totalNonCurrentAssets                    19309000000
+  totalNonCurrentLiabilities               8838000000
+  totalStockholdersEquity                  3407000000

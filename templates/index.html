@@ -195,11 +195,12 @@
     </div>
 
     <!-- Results -->
-    <div id="results-state" class="hidden">
-      <div class="results-header">
-        <h2 id="results-title">🏆 Top Results</h2>
-        <div class="results-meta" id="results-meta"></div>
-      </div>
+<div id="results-state" class="hidden">
+  <div class="results-header">
+    <h2 id="results-title">🏆 Top Results</h2>
+    <div class="results-meta" id="results-meta"></div>
+    <button id="download-btn" class="download-btn hidden">💾 Export to CSV</button>
+  </div>
 
       <!-- Summary stats -->
       <div class="stats-row" id="stats-row"></div>
@@ -217,11 +218,7 @@
         <h3>📊 Visual Analysis: Quality vs. Value</h3>
         <div id="scatter-plot"></div>
       </div>
-
-      <!-- Download -->
-      <button id="download-btn" class="download-btn">💾 Download Results as CSV</button>
     </div>
-
     <!-- Error state -->
     <div id="error-state" class="hidden">
       <div class="error-box">
@@ -289,6 +286,9 @@ document.querySelectorAll("input[name='scan-mode']").forEach(r => {
     document.getElementById("limit-manual-wrap").classList.toggle("hidden", this.value !== "manual");
   });
 });
+const initialMode = document.querySelector("input[name='scan-mode']:checked").value;
+document.getElementById("limit-slider-wrap").classList.toggle("hidden", initialMode !== "slider");
+document.getElementById("limit-manual-wrap").classList.toggle("hidden", initialMode !== "manual");
 
 // ── Collect params ─────────────────────────────────────────────────────────
 function collectParams() {
@@ -421,6 +421,9 @@ const COL_LABELS = {
   EBIT:"EBIT", EY:"EY", ROC:"ROC", EY_rank:"EY Rank", ROC_rank:"ROC Rank", MF_score:"MF Score"
 };
 
+let sortCol = null;
+let sortAsc = true;
+
 function renderResults(results, count, total_analyzed, summary) {
   if (!results || results.length === 0) {
     showError("No results to display.");
@@ -445,15 +448,8 @@ function renderResults(results, count, total_analyzed, summary) {
   `;
 
   // Table
-  const cols = Object.keys(results[0]);
-  const thead = document.getElementById("results-thead");
-  const tbody = document.getElementById("results-tbody");
-  thead.innerHTML = `<tr>${cols.map(c => `<th>${COL_LABELS[c]||c}</th>`).join("")}</tr>`;
-  tbody.innerHTML = results.map((row, i) =>
-    `<tr class="${i % 2 === 0 ? '' : 'alt'}">
-      ${cols.map(c => `<td>${fmt(row[c], c)}</td>`).join("")}
-    </tr>`
-  ).join("");
+
+  renderTable(currentResults);
 
   // Scatter plot
   const sectors = [...new Set(results.map(r => r.sector || "Unknown"))];
@@ -488,8 +484,43 @@ function renderResults(results, count, total_analyzed, summary) {
     margin: { l: 60, r: 20, t: 20, b: 60 },
   }, { responsive: true, displayModeBar: false });
 
+  document.getElementById("download-btn").classList.remove("hidden");
   showOnly("results-state");
-}
+  }
+
+  function renderTable(data) {
+      const cols = ["ticker", "name", "EY", "ROC", "exchange", "industry", "country", "MF_score"];
+      const thead = document.getElementById("results-thead");
+      const tbody = document.getElementById("results-tbody");
+
+    thead.innerHTML = `<tr>${cols.map(c => {
+      const label = COL_LABELS[c] || c;
+      const arrow = sortCol === c ? (sortAsc ? " ▲" : " ▼") : "";
+      return `<th style="cursor:pointer;" onclick="sortBy('${c}')">${label}${arrow}</th>`;
+    }).join("")}</tr>`;
+
+    tbody.innerHTML = data.map((row, i) =>
+      `<tr class="${i % 2 === 0 ? '' : 'alt'}">
+        ${cols.map(c => `<td>${fmt(row[c], c)}</td>`).join("")}
+      </tr>`
+    ).join("");
+    }
+
+  function sortBy(col) {
+    if (sortCol === col) {
+      sortAsc = !sortAsc;
+    } else {
+      sortCol = col;
+      sortAsc = true;
+    }
+      const sorted = [...currentResults].sort((a, b) => {
+      const va = a[col], vb = b[col];
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      return sortAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+    });
+    renderTable(sorted);
+  }
 
 // ── Download ───────────────────────────────────────────────────────────────
 document.getElementById("download-btn").addEventListener("click", () => {

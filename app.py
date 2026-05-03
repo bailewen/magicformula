@@ -282,6 +282,9 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue):
         # ── Step 3: Rank ───────────────────────────────────────────────────
         df = pd.DataFrame(records)
         ranked = mf.magic_formula_rank(df)
+        priority_cols = ["ticker", "name", "EY", "ROC", "exchange", "industry", "country", "MF_score"]
+        remaining_cols = [c for c in ranked.columns if c not in priority_cols]
+        ranked = ranked[priority_cols + remaining_cols]
 
         # ── Step 4: Optional health checks ────────────────────────────────
         if check_debt_revenue or check_cashflow:
