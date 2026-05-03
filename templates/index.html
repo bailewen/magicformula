@@ -221,15 +221,15 @@
 
     <!-- Scatter plot + sector pie -->
 <div class="chart-section">
-  <div style="display: grid; grid-template-columns: 200px 1fr; gap: 1rem; align-items: center;">
+  <div style="display: grid; grid-template-columns: 200px 1fr; gap: 1rem; align-items: center; min-width: 0; width: 100%;">
 
     <h3 style="margin: 0; grid-column: 1;">Sectors</h3>
     <h3 style="margin: 0; grid-column: 2;">📊 Quality vs. Value</h3>
 
     <div id="sector-pie" style="width: 200px; height: 200px; grid-column: 1;"></div>
 
-    <div style="grid-column: 2; position: relative; display: flex; flex-direction: column;">
-      <div id="scatter-plot" style="height: 300px; width: 100%;"></div>
+    <div style="grid-column: 2; position: relative; min-width: 0;">
+      <div id="scatter-plot" style="height: 300px; width: 100%; overflow-x: auto;"></div>
 
       <button id="show-all-btn" style="
         position: absolute;
