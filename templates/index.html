@@ -219,12 +219,34 @@
         </table>
       </div>
 
-      <!-- Scatter plot -->
-      <div class="chart-section">
-        <h3>📊 Visual Analysis: Quality vs. Value</h3>
-        <div id="scatter-plot"></div>
-      </div>
+    <!-- Scatter plot + sector pie -->
+<div class="chart-section">
+  <div style="display: grid; grid-template-columns: 200px 1fr; gap: 1rem; align-items: center;">
+
+    <h3 style="margin: 0; grid-column: 1;">Sectors</h3>
+    <h3 style="margin: 0; grid-column: 2;">📊 Quality vs. Value</h3>
+
+    <div id="sector-pie" style="width: 200px; height: 200px; grid-column: 1;"></div>
+
+    <div style="grid-column: 2; position: relative; display: flex; flex-direction: column;">
+      <div id="scatter-plot" style="height: 300px; width: 100%;"></div>
+
+      <button id="show-all-btn" style="
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        margin-top: 0.5rem;
+        font-family: DM Mono, monospace;
+        font-size: 0.75rem;
+        cursor: pointer;">
+        Show All
+      </button>
     </div>
+
+      </div> <!-- end chart-section -->
+    </div> <!-- end results-state -->
+
     <!-- Error state -->
     <div id="error-state" class="hidden">
       <div class="error-box">
@@ -232,14 +254,14 @@
         <div id="error-message"></div>
       </div>
     </div>
-</div><!-- end tab-screener -->
+
+  </div> <!-- end tab-screener -->
 
   <div id="tab-ticker" class="hidden">
     <p>Single Ticker coming soon</p>
   </div>
 
 </main>
-</div>
 
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
@@ -485,15 +507,43 @@ function renderResults(results, count, total_analyzed, summary) {
     };
   });
 
-  Plotly.newPlot("scatter-plot", traces, {
+  // Sector pie chart + Scatter chart
+  const sectorCounts = sectors.map(sector => results.filter(r => (r.sector || "Unknown") === sector).length);
+
+  Plotly.newPlot("sector-pie", [{
+    type: "pie",
+    labels: sectors,
+    values: sectorCounts,
+    marker: { colors: sectors.map((_, si) => palette[si % palette.length]) },
+    textinfo: "none",
+    textfont: { family: "DM Mono, monospace", color: "#c9d1d9" },
+    hovertemplate: "<b>%{label}</b><br>%{value} companies<br>%{percent}<extra></extra>",
+    showlegend: false,
+  }], {
     paper_bgcolor: "rgba(0,0,0,0)",
     plot_bgcolor: "rgba(0,0,0,0)",
     font: { family: "DM Mono, monospace", color: "#c9d1d9" },
-    xaxis: { title: "Earnings Yield (Cheapness)", tickformat: ".1%", gridcolor: "#30363d", zerolinecolor: "#30363d" },
-    yaxis: { title: "Return on Capital (Quality)", tickformat: ".1%", gridcolor: "#30363d", zerolinecolor: "#30363d" },
-    legend: { bgcolor: "rgba(0,0,0,0)", bordercolor: "#30363d" },
-    margin: { l: 60, r: 20, t: 20, b: 60 },
+    margin: { l: 10, r: 10, t: 10, b: 10 },
   }, { responsive: true, displayModeBar: false });
+
+  Plotly.newPlot("scatter-plot", traces, {
+    paper_bgcolor: "rgba(0,0,0,0)",
+    plot_bgcolor: "rgba(0,0,0,0)",
+    font: { family: "DM Mono, monospace", color: "#6e7a82" },
+    xaxis: { title: "Earnings Yield", tickformat: ".1%", gridcolor: "#30363d", zerolinecolor: "#30363d" },
+    yaxis: { title: "Return on Capital", tickformat: ".1%", gridcolor: "#30363d", zerolinecolor: "#30363d" },
+    legend: { bgcolor: "rgba(0,0,0,0)", bordercolor: "#30363d", font: { family: "DM Mono, monospace", size: 13, color: "#1a1a2e" } },
+    margin: { l: 80, r: 20, t: 40, b: 60 },
+    showlegend: true,
+  }, { responsive: true, displayModeBar: false });
+
+  setTimeout(() => {
+  Plotly.relayout("scatter-plot", { autosize: true });
+  }, 100);
+
+  document.getElementById("show-all-btn").onclick = () => {
+  Plotly.restyle("scatter-plot", { visible: true });
+  };
 
   document.getElementById("download-btn").classList.remove("hidden");
   showOnly("results-state");
