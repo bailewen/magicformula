@@ -884,7 +884,7 @@ if (savedScan) {
     document.getElementById("tk-ticker-badge").textContent   = ticker;
     document.getElementById("tk-exchange-badge").textContent = profile.exchangeShortName || profile.exchange || "";
     document.getElementById("tk-last-updated").textContent = d.last_updated
-      ? `· Data Fetched: ${d.last_updated.split(" ")[0]}`
+      ? `Data Fetched: ${d.last_updated.split(" ")[0]}`
       : "";
     document.getElementById("tk-sector").textContent         = profile.sector || "—";
     document.getElementById("tk-industry").textContent       = profile.industry || "—";

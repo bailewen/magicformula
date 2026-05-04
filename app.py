@@ -10,7 +10,7 @@ import uuid
 import random
 import pandas as pd
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Add current directory to path so magicformula imports correctly
@@ -202,7 +202,7 @@ def ticker_lookup(symbol):
             last_updated = vault[ep][1]
             break
     if last_updated is None:
-        last_updated = datetime.utcnow().isoformat()
+        last_updated = datetime.now(timezone.utc).date().isoformat()
 
     profile     = get("profile")
     quote_data  = get("quote")
