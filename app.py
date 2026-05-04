@@ -163,25 +163,17 @@ def stock_detail(ticker):
 @app.route("/ticker/<symbol>")
 def ticker_lookup(symbol):
     symbol = symbol.upper().strip()
-
     conn = sqlite3.connect(mf.DB_PATH)
     conn.row_factory = sqlite3.Row
-
-    # ── 1. Pull from raw_json_vault ──────────────────────────────────────
     ENDPOINTS = ["profile", "quote", "income-statement",
                  "balance-sheet-statement", "ratios-ttm", "key-metrics-ttm"]
-
     rows = conn.execute(
         "SELECT endpoint, json_blob, last_updated FROM raw_json_vault WHERE ticker = ?",
         (symbol,)
     ).fetchall()
-
     vault = {r["endpoint"]: (json.loads(r["json_blob"]), r["last_updated"]) for r in rows}
-
     source = "vault"
     last_updated = None
-
-    # ── 2. Fall back to live FMP if not in vault ─────────────────────────
     if not vault:
         source = "live"
         for ep in ENDPOINTS:
@@ -191,24 +183,19 @@ def ticker_lookup(symbol):
                     vault[ep] = (data, None)
             except Exception as e:
                 print(f"[ticker_lookup] {ep}/{symbol}: {e}")
-
     if not vault:
         conn.close()
         return jsonify({"error": f"No data found for {symbol}"}), 404
 
     def get(ep):
-        """Return parsed data for an endpoint, unwrapping single-item lists."""
         pair = vault.get(ep)
         if not pair:
             return {}
         data = pair[0]
-        if last_updated is None and pair[1]:
-            pass  # captured below
         if isinstance(data, list):
             return data[0] if data else {}
         return data or {}
 
-    # Grab last_updated from whichever endpoint has it
     for ep in ENDPOINTS:
         if ep in vault and vault[ep][1]:
             last_updated = vault[ep][1]
@@ -221,51 +208,20 @@ def ticker_lookup(symbol):
     ratios      = get("ratios-ttm")
     key_metrics = get("key-metrics-ttm")
 
-    @app.route("/ticker/<symbol>/refresh", methods=["POST"])
-    def ticker_refresh(symbol):
-        symbol = symbol.upper().strip()
-        ENDPOINTS = ["profile", "quote", "income-statement",
-                     "balance-sheet-statement", "ratios-ttm", "key-metrics-ttm"]
-        conn = sqlite3.connect(mf.DB_PATH)
-        ok = 0
-        for ep in ENDPOINTS:
-            try:
-                data = mf.fmp_get(f"/{ep}/{symbol}")
-                if data:
-                    conn.execute("""
-                        INSERT INTO raw_json_vault (ticker, endpoint, json_blob)
-                        VALUES (?, ?, ?)
-                        ON CONFLICT(ticker, endpoint) DO UPDATE SET
-                            json_blob = excluded.json_blob,
-                            last_updated = CURRENT_TIMESTAMP
-                    """, (symbol, ep, json.dumps(data)))
-                    ok += 1
-            except Exception as e:
-                print(f"[ticker_refresh] {ep}/{symbol}: {e}")
-        conn.commit()
-        conn.close()
-        return jsonify({"status": "ok", "updated": ok})
-
-    # ── 3. MF rank from company_cache ────────────────────────────────────
     mf_data = {}
     try:
-        # Get this stock's metrics
         row = conn.execute(
-            "SELECT EY, ROC, MF_score FROM company_cache WHERE ticker = ?",
+            "SELECT EY, ROC, MF_score FROM mf_universe WHERE ticker = ?",
             (symbol,)
         ).fetchone()
-
         if row:
-            # Count total ranked stocks and find rank
             total = conn.execute(
-                "SELECT COUNT(*) FROM company_cache WHERE MF_score IS NOT NULL"
+                "SELECT COUNT(*) FROM mf_universe WHERE MF_score IS NOT NULL"
             ).fetchone()[0]
-
             rank_row = conn.execute(
-                "SELECT COUNT(*) FROM company_cache WHERE MF_score < ?",
+                "SELECT COUNT(*) FROM mf_universe WHERE MF_score < ?",
                 (row["MF_score"],)
             ).fetchone()
-
             mf_data = {
                 "ey":       row["EY"],
                 "roc":      row["ROC"],
@@ -277,7 +233,6 @@ def ticker_lookup(symbol):
         print(f"[ticker_lookup] MF rank error: {e}")
 
     conn.close()
-
     return jsonify({
         "profile":      profile,
         "quote":        quote_data,
@@ -290,6 +245,31 @@ def ticker_lookup(symbol):
         "last_updated": last_updated,
     })
 
+
+@app.route("/ticker/<symbol>/refresh", methods=["POST"])
+def ticker_refresh(symbol):
+    symbol = symbol.upper().strip()
+    ENDPOINTS = ["profile", "quote", "income-statement",
+                 "balance-sheet-statement", "ratios-ttm", "key-metrics-ttm"]
+    conn = sqlite3.connect(mf.DB_PATH)
+    ok = 0
+    for ep in ENDPOINTS:
+        try:
+            data = mf.fmp_get(f"/{ep}/{symbol}")
+            if data:
+                conn.execute("""
+                    INSERT INTO raw_json_vault (ticker, endpoint, json_blob)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(ticker, endpoint) DO UPDATE SET
+                        json_blob = excluded.json_blob,
+                        last_updated = CURRENT_TIMESTAMP
+                """, (symbol, ep, json.dumps(data)))
+                ok += 1
+        except Exception as e:
+            print(f"[ticker_refresh] {ep}/{symbol}: {e}")
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "ok", "updated": ok})
 
 # ── Background scan logic ──────────────────────────────────────────────────────
 
