@@ -514,8 +514,8 @@ document.getElementById("run-btn").addEventListener("click", async () => {
 
   const topNInput = document.getElementById("top-n");
   const topN = parseInt(topNInput.value) || 30;
-  if (!topNInput.value || topN < 1 || topN > 100) {
-      topNInput.setCustomValidity("Range: 1 to 100");
+  if (!topNInput.value || topN < 10 || topN > 100) {
+      topNInput.setCustomValidity("Range: 10 to 100");
       topNInput.reportValidity();
       return;
   }
