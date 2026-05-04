@@ -50,7 +50,7 @@
       <section class="sidebar-section">
         <div class="section-label">Filters</div>
         <label class="field-label" for="min-mcap">Min Market Cap (USD)</label>
-        <input type="number" id="min-mcap" class="input" value="50000000" step="10000000">
+        <input type="text" id="min-mcap" class="input" value="50,000,000">
       </section>
 
       <!-- Scan limit -->
@@ -429,6 +429,13 @@ function showError(msg) {
 }
 
 // ── Sidebar interactions ───────────────────────────────────────────────────
+document.getElementById("min-mcap").addEventListener("input", function() {
+    const raw = this.value.replace(/,/g, "");
+    if (!isNaN(raw) && raw !== "") {
+        this.value = Number(raw).toLocaleString();
+    }
+});
+
 document.getElementById("include-intl").addEventListener("change", function() {
   document.getElementById("country-panel").classList.toggle("hidden", !this.checked);
 });
@@ -482,7 +489,7 @@ function collectParams() {
    exchanges: Array.from(document.querySelectorAll(".exchange-cb:checked"))
     .map(cb => cb.value)
     .join(","),
-      min_mcap: parseFloat(document.getElementById("min-mcap").value),
+      min_mcap: parseFloat(document.getElementById("min-mcap").value.replace(/,/g, "")) || 50000000,
       limit,
       top_n: parseInt(document.getElementById("top-n").value),
       use_random: document.getElementById("use-random").checked,
