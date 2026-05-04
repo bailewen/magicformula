@@ -293,6 +293,8 @@
           <h2 id="tk-name"></h2>
           <span id="tk-ticker-badge" class="tk-ticker-badge"></span>
           <span id="tk-exchange-badge" class="tk-exchange-badge"></span>
+          <span id="tk-last-updated" class="tk-last-updated"></span>
+          <button id="tk-refresh-btn" class="tk-refresh-btn">↻ Update</button>
         </div>
         <div class="tk-meta-row">
           <span id="tk-sector"></span>
@@ -304,7 +306,7 @@
         <div id="tk-description" class="tk-description"></div>
       </div>
       <div class="tk-rank-block">
-        <div class="tk-rank-label">MF Rank</div>
+        <div class="tk-rank-label">MF Rank <span class="infotip" title="Ranked against the entire market universe (~3,700 stocks)">ⓘ</span></div>
         <div id="tk-rank-value" class="tk-rank-value">—</div>
         <div id="tk-rank-sub" class="tk-rank-sub"></div>
       </div>
@@ -551,6 +553,12 @@ async function fetchAndRenderResults(scan_id, count, total_analyzed, summary) {
   renderResults(data.results, count, total_analyzed, summary);
   document.getElementById("run-btn").disabled = false;
   document.getElementById("run-btn").textContent = "🚀 Run Magic Formula Scan";
+    localStorage.setItem('lastScanResults', JSON.stringify({
+    results: data.results,
+    count,
+    total_analyzed,
+    summary
+  }));
 }
 
 function fmt(val, col) {
@@ -571,9 +579,20 @@ function fmt(val, col) {
 }
 
 const COL_LABELS = {
-  ticker:"Ticker", name:"Name", exchange:"Exchange", country:"Country",
-  sector:"Sector", industry:"Industry", marketCap:"Mkt Cap", EV:"EV",
-  EBIT:"EBIT", EY:"EY", ROC:"ROC", EY_rank:"EY Rank", ROC_rank:"ROC Rank", MF_score:"MF Score"
+  ticker:   "Ticker",
+  name:     "Name",
+  exchange: "Exchange",
+  country:  "Country",
+  sector:   "Sector",
+  industry: "Industry",
+  marketCap:"Mkt Cap",
+  EV:       "EV",
+  EBIT:     "EBIT",
+  EY:       "EY",
+  ROC:      "ROC",
+  EY_rank:  "EY Rank",
+  ROC_rank: "ROC Rank",
+  MF_score: "MF Score",
 };
 
 let sortCol = null;
@@ -676,11 +695,13 @@ function renderResults(results, count, total_analyzed, summary) {
       const thead = document.getElementById("results-thead");
       const tbody = document.getElementById("results-tbody");
 
-    thead.innerHTML = `<tr>${cols.map(c => {
-      const label = COL_LABELS[c] || c;
-      const arrow = sortCol === c ? (sortAsc ? " ▲" : " ▼") : "";
-      return `<th style="cursor:pointer;" onclick="sortBy('${c}')">${label}${arrow}</th>`;
-    }).join("")}</tr>`;
+  thead.innerHTML = `<tr>${cols.map(c => {
+    const label = c === "MF_score"
+    ? `MF Score <span class="infotip" title="Ranked within this scan only, not the full market">ⓘ</span>`
+      : (COL_LABELS[c] || c);
+    const arrow = sortCol === c ? (sortAsc ? " ▲" : " ▼") : "";
+    return `<th style="cursor:pointer;" onclick="sortBy('${c}')">${label}${arrow}</th>`;
+  }).join("")}</tr>`;
 
     tbody.innerHTML = data.map((row, i) =>
       `<tr class="${i % 2 === 0 ? '' : 'alt'}">
@@ -735,6 +756,18 @@ document.querySelectorAll('.tab').forEach(tab => {
 // Restore last active tab on load
 const savedTab = localStorage.getItem('activeTab');
 if (savedTab) switchTab(savedTab);
+
+// Restore last scan results on load
+const savedScan = localStorage.getItem('lastScanResults');
+if (savedScan) {
+  try {
+    const { results, count, total_analyzed, summary } = JSON.parse(savedScan);
+    currentResults = results;
+    renderResults(results, count, total_analyzed, summary);
+  } catch(e) {
+    localStorage.removeItem('lastScanResults');
+  }
+}
 
 </script>
 
@@ -830,6 +863,9 @@ if (savedTab) switchTab(savedTab);
     document.getElementById("tk-name").textContent           = profile.companyName || ticker;
     document.getElementById("tk-ticker-badge").textContent   = ticker;
     document.getElementById("tk-exchange-badge").textContent = profile.exchangeShortName || profile.exchange || "";
+    document.getElementById("tk-last-updated").textContent = d.last_updated
+      ? `· Data Fetched: ${d.last_updated.split(" ")[0]}`
+      : "";
     document.getElementById("tk-sector").textContent         = profile.sector || "—";
     document.getElementById("tk-industry").textContent       = profile.industry || "—";
     document.getElementById("tk-country").textContent        = profile.country || "—";
@@ -925,6 +961,15 @@ if (savedTab) switchTab(savedTab);
       : `🗄 From local vault · last updated ${d.last_updated || "unknown"}`;
 
     tkShow("ticker-result");
+    document.getElementById("tk-refresh-btn").onclick = async () => {
+      const btn = document.getElementById("tk-refresh-btn");
+        btn.textContent = "↻ Updating…";
+        btn.disabled = true;
+        await fetch(`/ticker/${ticker}/refresh`, { method: "POST" });
+        btn.textContent = "↻ Update";
+        btn.disabled = false;
+        lookupTicker();
+      };
   }
 
   function set(id, val) {

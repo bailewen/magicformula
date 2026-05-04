@@ -221,6 +221,31 @@ def ticker_lookup(symbol):
     ratios      = get("ratios-ttm")
     key_metrics = get("key-metrics-ttm")
 
+    @app.route("/ticker/<symbol>/refresh", methods=["POST"])
+    def ticker_refresh(symbol):
+        symbol = symbol.upper().strip()
+        ENDPOINTS = ["profile", "quote", "income-statement",
+                     "balance-sheet-statement", "ratios-ttm", "key-metrics-ttm"]
+        conn = sqlite3.connect(mf.DB_PATH)
+        ok = 0
+        for ep in ENDPOINTS:
+            try:
+                data = mf.fmp_get(f"/{ep}/{symbol}")
+                if data:
+                    conn.execute("""
+                        INSERT INTO raw_json_vault (ticker, endpoint, json_blob)
+                        VALUES (?, ?, ?)
+                        ON CONFLICT(ticker, endpoint) DO UPDATE SET
+                            json_blob = excluded.json_blob,
+                            last_updated = CURRENT_TIMESTAMP
+                    """, (symbol, ep, json.dumps(data)))
+                    ok += 1
+            except Exception as e:
+                print(f"[ticker_refresh] {ep}/{symbol}: {e}")
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "ok", "updated": ok})
+
     # ── 3. MF rank from company_cache ────────────────────────────────────
     mf_data = {}
     try:

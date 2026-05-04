@@ -420,3 +420,32 @@ tr:hover td { background: var(--accent-dim); }
   text-align: right;
   padding-top: 4px;
 }
+
+.tk-refresh-btn {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2px 8px;
+  cursor: pointer;
+  margin-left: 4px;
+  font-family: var(--font);
+  transition: background 0.15s;
+  vertical-align: middle;
+  line-height: 1.6;
+}
+.tk-refresh-btn:hover { background: var(--bg-3); }
+
+.tk-last-updated {
+  font-size: 11px;
+  color: var(--text-muted);
+  align-self: center;
+}
+
+.infotip {
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: help;
+  margin-left: 3px;
+}
