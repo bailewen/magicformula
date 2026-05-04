@@ -200,6 +200,8 @@ def ticker_lookup(symbol):
         if ep in vault and vault[ep][1]:
             last_updated = vault[ep][1]
             break
+    if last_updated is None:
+        last_updated = datetime.utcnow().isoformat()
 
     profile     = get("profile")
     quote_data  = get("quote")
