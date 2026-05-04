@@ -597,7 +597,7 @@ async function fetchAndRenderResults(scan_id, count, total_analyzed, summary) {
   currentScanId = scan_id;
   renderResults(data.results, count, total_analyzed, summary);
   document.getElementById("run-btn").disabled = false;
-  document.getElementById("run-btn").textContent = "🚀 Run Magic Formula Scan";
+  document.getElementById("run-btn").textContent = "Run Scan";
     localStorage.setItem('lastScanResults', JSON.stringify({
     results: data.results,
     count,
