@@ -502,3 +502,25 @@ tr:hover td { background: var(--accent-dim); }
   .tk-name-row { flex-wrap: wrap; }
 }
 
+.advanced-toggle {
+  display: none;
+  width: 100%;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: left;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+  .advanced-toggle { display: block; }
+
+@media (max-width: 768px) {
+  #advanced-drawer { display: block; }
+  #advanced-drawer.hidden { display: none !important; }
+}

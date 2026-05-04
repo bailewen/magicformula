@@ -46,14 +46,51 @@
 
       <div class="divider"></div>
 
-      <!-- Exchanges -->
+      <!-- Market cap -->
       <section class="sidebar-section">
-        <div class="section-label">Exchanges</div>
-        <label class="field-label" for="exchanges">Exchanges (comma-separated)</label>
-        <input type="text" id="exchanges" class="input" value="NASDAQ,NYSE,AMEX" placeholder="NASDAQ,NYSE,AMEX">
+        <div class="section-label">Filters</div>
+        <label class="field-label" for="min-mcap">Min Market Cap (USD)</label>
+        <input type="number" id="min-mcap" class="input" value="50000000" step="10000000">
       </section>
 
-      <!-- Markets -->
+      <!-- Scan limit -->
+      <section class="sidebar-section">
+        <div class="section-label">Scan Limit</div>
+        <div class="scan-mode">
+          <label><input type="radio" name="scan-mode" value="slider" checked> Slider</label>
+          <label><input type="radio" name="scan-mode" value="manual"> Manual</label>
+        </div>
+        <div id="limit-slider-wrap">
+          <input type="range" id="limit-slider" min="10" max="4000" value="4000" class="slider">
+          <div class="slider-val"><span id="limit-display">4000</span> stocks</div>
+        </div>
+        <div id="limit-manual-wrap" class="hidden">
+          <input type="number" id="limit-manual" class="input" value="400" min="10" max="10000" step="50">
+        </div>
+      </section>
+
+      <!-- Top N -->
+      <section class="sidebar-section">
+        <label class="field-label" for="top-n">Top N Results to Display</label>
+        <input type="number" id="top-n" class="input" value="30" min="5" max="100">
+      </section>
+
+      <button id="advanced-toggle" class="advanced-toggle">⚙ Advanced Settings▾</button>
+      <div id="advanced-drawer" class="hidden">
+
+
+      <!-- Options -->
+      <section class="sidebar-section">
+        <div class="section-label">Options</div>
+        <label class="toggle-row"><input type="checkbox" id="use-random" checked> Randomize symbol selection</label>
+        <label class="toggle-row"><input type="checkbox" id="use-annual" checked> Use Annual Data (instead of TTM)</label>
+        <div class="divider"></div>
+        <div class="section-label">Exchanges</div>
+        <label class="toggle-row"><input type="checkbox" class="exchange-cb" value="NASDAQ" checked> NASDAQ</label>
+        <label class="toggle-row"><input type="checkbox" class="exchange-cb" value="NYSE" checked> NYSE</label>
+        <label class="toggle-row"><input type="checkbox" class="exchange-cb" value="AMEX" checked> AMEX</label>
+      </section>
+              <!-- Markets -->
       <section class="sidebar-section">
         <div class="section-label">Markets</div>
         <label class="toggle-row">
@@ -92,42 +129,6 @@
         </div>
       </section>
 
-      <!-- Market cap -->
-      <section class="sidebar-section">
-        <div class="section-label">Filters</div>
-        <label class="field-label" for="min-mcap">Min Market Cap (USD)</label>
-        <input type="number" id="min-mcap" class="input" value="50000000" step="10000000">
-      </section>
-
-      <!-- Scan limit -->
-      <section class="sidebar-section">
-        <div class="section-label">Scan Limit</div>
-        <div class="scan-mode">
-          <label><input type="radio" name="scan-mode" value="slider" checked> Slider</label>
-          <label><input type="radio" name="scan-mode" value="manual"> Manual</label>
-        </div>
-        <div id="limit-slider-wrap">
-          <input type="range" id="limit-slider" min="10" max="4000" value="4000" class="slider">
-          <div class="slider-val"><span id="limit-display">4000</span> stocks</div>
-        </div>
-        <div id="limit-manual-wrap" class="hidden">
-          <input type="number" id="limit-manual" class="input" value="400" min="10" max="10000" step="50">
-        </div>
-      </section>
-
-      <!-- Top N -->
-      <section class="sidebar-section">
-        <label class="field-label" for="top-n">Top N Results to Display</label>
-        <input type="number" id="top-n" class="input" value="30" min="5" max="100">
-      </section>
-
-      <!-- Options -->
-      <section class="sidebar-section">
-        <div class="section-label">Options</div>
-        <label class="toggle-row"><input type="checkbox" id="use-random" checked> Randomize symbol selection</label>
-        <label class="toggle-row"><input type="checkbox" id="use-annual" checked> Use Annual Data (instead of TTM)</label>
-      </section>
-
       <div class="divider"></div>
 
       <!-- Health checks -->
@@ -137,7 +138,8 @@
         <label class="toggle-row"><input type="checkbox" id="check-cashflow"> Cash flow exceeds net income</label>
       </section>
 
-    </div>
+      </div><!-- end advanced-drawer -->
+      </div><!-- end sidebar-inner -->
   </aside>
 
   <!-- ── Main content ──────────────────────────────────────────── -->
@@ -449,6 +451,18 @@ const initialMode = document.querySelector("input[name='scan-mode']:checked").va
 document.getElementById("limit-slider-wrap").classList.toggle("hidden", initialMode !== "slider");
 document.getElementById("limit-manual-wrap").classList.toggle("hidden", initialMode !== "manual");
 
+// ── Advanced drawer (mobile) ───────────────────────────────────────────────
+const advancedToggle = document.getElementById("advanced-toggle");
+if (advancedToggle) {
+  advancedToggle.addEventListener("click", () => {
+    const drawer = document.getElementById("advanced-drawer");
+    drawer.classList.toggle("hidden");
+    advancedToggle.textContent = drawer.classList.contains("hidden")
+      ? "⚙ Advanced Settings▾"
+      : "⚙ Advanced Settings▴";
+  });
+}
+
 // ── Collect params ─────────────────────────────────────────────────────────
 function collectParams() {
   const scanMode = document.querySelector("input[name='scan-mode']:checked").value;
@@ -465,15 +479,17 @@ function collectParams() {
 
   return {
     api_key: document.getElementById("api_key") ? document.getElementById("api_key").value : "",
-    exchanges: document.getElementById("exchanges").value,
-    min_mcap: parseFloat(document.getElementById("min-mcap").value),
-    limit,
-    top_n: parseInt(document.getElementById("top-n").value),
-    use_random: document.getElementById("use-random").checked,
-    use_annual: document.getElementById("use-annual").checked,
-    check_debt_revenue: document.getElementById("check-debt-revenue").checked,
-    check_cashflow: document.getElementById("check-cashflow").checked,
-    selected_countries: countries,
+   exchanges: Array.from(document.querySelectorAll(".exchange-cb:checked"))
+    .map(cb => cb.value)
+    .join(","),
+      min_mcap: parseFloat(document.getElementById("min-mcap").value),
+      limit,
+      top_n: parseInt(document.getElementById("top-n").value),
+      use_random: document.getElementById("use-random").checked,
+      use_annual: document.getElementById("use-annual").checked,
+      check_debt_revenue: document.getElementById("check-debt-revenue").checked,
+      check_cashflow: document.getElementById("check-cashflow").checked,
+      selected_countries: countries,
   };
 }
 
