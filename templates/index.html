@@ -75,7 +75,7 @@
         <input type="number" id="top-n" class="input" value="30" min="5" max="100">
       </section>
 
-      <button id="advanced-toggle" class="advanced-toggle">⚙ Advanced Settings▾</button>
+      <button id="advanced-toggle" class="advanced-toggle">⚙ Advanced Settings ▾</button>
       <div id="advanced-drawer" class="hidden">
 
 
@@ -458,8 +458,8 @@ if (advancedToggle) {
     const drawer = document.getElementById("advanced-drawer");
     drawer.classList.toggle("hidden");
     advancedToggle.textContent = drawer.classList.contains("hidden")
-      ? "⚙ Advanced Settings▾"
-      : "⚙ Advanced Settings▴";
+      ? "⚙ Advanced Settings ▾"
+      : "⚙ Advanced Settings ▴";
   });
 }
 

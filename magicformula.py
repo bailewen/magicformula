@@ -263,151 +263,116 @@ def _first_available(items: List[Dict[str, Any]], fields: List[str]):
 
 
 # -------------------- Field helpers --------------------
+def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool) -> Optional[Dict[str, Any]]:
+    """
+    Core MF computation from pre-parsed data structures.
+    Returns a result dict on success, or a dict with 'reason' key on skip, or None.
+    """
+    company_name = prof.get("companyName") or prof.get("company") or prof.get("symbol", "")
+
+    if prof.get("sector") in EXCLUDE_SECTORS:
+        return None
+
+    name = prof.get("companyName", "").lower()
+    if any(x in name for x in ["preferred", "perpetual", "series a", "series b"]):
+        return None
+
+    if annual:
+        ebit = _latest(inc, "operatingIncome")
+    elif inc and len(inc) >= 4:
+        ebit = sum(q.get("operatingIncome") or 0 for q in inc[:4])
+    else:
+        ebit = None
+
+    tca  = _latest(bal, "totalCurrentAssets")
+    tcl  = _latest(bal, "totalCurrentLiabilities")
+    ppe  = _latest(bal, "propertyPlantEquipmentNet")
+    cash = _latest(bal, "cashAndShortTermInvestments")
+    debt = _first_available(bal, ["totalDebt", "shortTermDebt", "longTermDebt"]) or 0.0
+
+    mcap = prof.get("mktCap") if prof.get("mktCap") is not None else prof.get("marketCap")
+    try:
+        mcap = float(mcap) if mcap is not None else None
+    except Exception:
+        mcap = None
+
+    if None in (ebit, tca, tcl, ppe, cash, mcap):
+        missing = [n for n, v in [("ebit", ebit), ("tca", tca), ("tcl", tcl),
+                                   ("ppe", ppe), ("cash", cash), ("mcap", mcap)] if v is None]
+        return {"reason": f"Missing fields: {', '.join(missing)}"}
+
+    ev = mcap + debt - cash
+
+    nwc = (tca - cash) - (tcl - debt)
+    nwc = max(nwc, 0)
+    goodwill    = _latest(bal, "goodwill") or 0
+    intangibles = _latest(bal, "intangibleAssets") or 0
+    capital = nwc + ppe
+
+    if ev <= 0:
+        return {"reason": "Negative or zero EV"}
+    if ev < mcap * 0.01:
+        return {"reason": "EV implausibly small vs market cap (data error)"}
+    if capital <= 0:
+        return {"reason": "Negative or zero capital"}
+    if capital < 10e6:
+        return {"reason": "Capital < $10M"}
+    if ebit < 0:
+        return {"reason": "Negative EBIT"}
+
+    ey  = ebit / ev
+    roc = ebit / capital
+
+    if roc > 10.0:
+        return {"reason": "ROC > 1000% (data error)"}
+
+    return {
+        "name":      company_name,
+        "exchange":  prof.get("exchangeShortName"),
+        "country":   prof.get("country"),
+        "sector":    prof.get("sector"),
+        "industry":  prof.get("industry"),
+        "marketCap": mcap,
+        "EV":        ev,
+        "EBIT":      ebit,
+        "NWC":       nwc,
+        "PPE_Net":   ppe,
+        "Capital":   capital,
+        "Cash":      cash,
+        "TotalDebt": debt,
+        "EY":        ey,
+        "ROC":       roc,
+        "Goodwill":  goodwill,
+        "Intangibles": intangibles,
+    }
 
 def pull_company(symbol: str, annual: bool = False, subtract_intangibles: bool = True) -> Optional[Dict[str, Any]]:
- 
     try:
         prof = fmp_profile(symbol)
         if not prof:
             return {"type": "skip", "ticker": symbol, "name": symbol, "reason": "No profile data"}
-        # records skipped items
 
-        company_name = prof.get("companyName") or prof.get("company") or symbol
-
-        # Country filter handled in list_symbols
-     
-        # Exclude sectors
-        if prof.get("sector") in EXCLUDE_SECTORS:
-            return None
-
-        # Skip preferred shares and duplicate share classes
-        name = prof.get("companyName", "").lower()
-        if any(x in name for x in ["preferred", "perpetual", "series a", "series b"]):
-            return None
-     
         inc = fmp_income(symbol, annual)
         bal = fmp_balance(symbol)
 
-        # EBIT proxy (FMP uses operatingIncome)
-        #ebit = _latest(inc, "operatingIncome")
-        #ebit = sum(item.get("operatingIncome") or 0 for item in inc) if inc else None #annual reports
-       
-        # EBIT calculation
-        if annual:
-            ebit = _latest(inc, "operatingIncome")
-        elif inc and len(inc) >= 4:
-            ebit = sum(q.get("operatingIncome") or 0 for q in inc[:4])
-        else:
-            ebit = None
-          
-        # Balance sheet fields
-        tca  = _latest(bal, "totalCurrentAssets")
-        tcl  = _latest(bal, "totalCurrentLiabilities")
-        ppe  = _latest(bal, "propertyPlantEquipmentNet")
-        cash = _latest(bal, "cashAndShortTermInvestments")
-        debt = _first_available(bal, ["totalDebt", "shortTermDebt", "longTermDebt"]) or 0.0
+        result = _compute_mf_metrics(prof, inc, bal, annual)
 
-        # Market cap from profile (FMP 'mktCap' sometimes named 'marketCap')
-        mcap = prof.get("mktCap") if prof.get("mktCap") is not None else prof.get("marketCap")
-        try:
-            mcap = float(mcap) if mcap is not None else None
-        except Exception:
-            mcap = None
+        if result is None:
+            return None
+        if "reason" in result:
+            print(f"DEBUG: Skipping {symbol} -> {result['reason']}")
+            return {"type": "skip", "ticker": symbol, "name": prof.get("companyName", symbol), "reason": result["reason"]}
 
-        #if None in (ebit, tca, tcl, ppe, cash, debt, mcap):
-        #    return None
-        # --- check for why nothing is being found ---
-        if None in (ebit, tca, tcl, ppe, cash, debt, mcap):
-            missing = []
-            if ebit is None: missing.append("ebit")
-            if tca is None: missing.append("tca")
-            if tcl is None: missing.append("tcl")
-            if ppe is None: missing.append("ppe")
-            if cash is None: missing.append("cash")
-            if debt is None: missing.append("debt")
-            if mcap is None: missing.append("mcap")
+        return {"type": "success", "ticker": symbol, **result}
 
-            # This will tell us exactly why the TTM endpoint is failing
-            print(f"DEBUG: Skipping {symbol} -> Missing: {missing}")
-            return {"type": "skip", "ticker": symbol, "name": company_name,
-                    "reason": f"Missing fields: {', '.join(missing)}"}
-
-
-
-        ev = mcap + debt - cash
-   
-        # Greenblatt's formula: standard working capital
-        # nwc = tca - tcl
-        # capital = nwc + ppe
-        # It gives me no matches
-
-        # Modified working capital (removes idle cash and debt from capital calculation)
-        nwc = (tca - cash) - (tcl - debt)
-        nwc = max(nwc, 0)  # Floor NWC at zero
-        goodwill = _latest(bal, "goodwill") or 0
-        intangibles = _latest(bal, "intangibleAssets") or 0
-        capital = nwc + ppe
-
-        #filter out negative enterprise value (companies running on debt)
-        if ev <= 0:
-            return {"type": "skip", "ticker": symbol, "name": company_name,
-                    "reason": "Negative or zero EV"}
-
-
-        if ev < mcap * 0.01:
-            return {"type": "skip", "ticker": symbol, "name": company_name,
-                    "reason": "EV implausibly small vs market cap (data error)"}
-         
-        # Handle edge cases
-        if capital <= 0:
-            return {"type": "skip", "ticker": symbol, "name": company_name,
-                    "reason": "Negative or zero capital"}
-        if capital < 10e6:  # Require minimum $10M capital base
-            return {"type": "skip", "ticker": symbol, "name": company_name,
-                    "reason": "Capital < $10M"}
-
-        if ebit < 0:
-            return {"type": "skip", "ticker": symbol, "name": company_name,
-                    "reason": "Negative EBIT"}
-        ey = ebit / ev
-        roc = ebit / capital
-
-        # Sanity filters
-        if roc > 10.0:  # ROC > 1000% is likely a data error
-            return {"type": "skip", "ticker": symbol, "name": company_name,
-                    "reason": "ROC > 1000% (data error)"}
-
-        return {
-            "type": "success",
-            "ticker": symbol,
-            "name": prof.get("companyName") or prof.get("company") or prof.get("symbol"),
-            "exchange": prof.get("exchangeShortName"),
-            "country": prof.get("country"),
-            "sector": prof.get("sector"),
-            "industry": prof.get("industry"),
-            "marketCap": mcap,
-            "EV": ev,
-            "EBIT": ebit,
-            "NWC": nwc,
-            "PPE_Net": ppe,
-            "Capital": capital,
-            "Cash": cash,
-            "TotalDebt": debt,
-            "EY": ey,
-            "ROC": roc,
-            "Goodwill": goodwill,
-            "Intangibles": intangibles,
-        }
-     #record API exceptions
     except Exception as e:
-        return {"type": "skip", "ticker": symbol, "name": symbol,
-                "reason": f"Exception: {str(e)}"}
+        return {"type": "skip", "ticker": symbol, "name": symbol, "reason": f"Exception: {str(e)}"}
+
 #---------------------compute from vault----------------
 def compute_mf_from_vault(symbol: str, vault: dict, annual: bool = True) -> Optional[Dict[str, Any]]:
     """
     Compute MF metrics from pre-fetched vault blobs.
     vault = {"profile": [...], "income-statement": [...], "balance-sheet-statement": [...], ...}
-    Mirrors pull_company() logic without making API calls.
     """
     try:
         prof_raw = vault.get("profile", [])
@@ -415,82 +380,17 @@ def compute_mf_from_vault(symbol: str, vault: dict, annual: bool = True) -> Opti
         if not prof:
             return None
 
-        company_name = prof.get("companyName") or prof.get("company") or symbol
-
-        if prof.get("sector") in EXCLUDE_SECTORS:
-            return None
-
-        name = prof.get("companyName", "").lower()
-        if any(x in name for x in ["preferred", "perpetual", "series a", "series b"]):
-            return None
-
         inc = vault.get("income-statement", [])
         bal_raw = vault.get("balance-sheet-statement", [])
         bal = bal_raw if isinstance(bal_raw, list) else [bal_raw]
 
-        if annual:
-            ebit = _latest(inc, "operatingIncome")
-        elif inc and len(inc) >= 4:
-            ebit = sum(q.get("operatingIncome") or 0 for q in inc[:4])
-        else:
-            ebit = None
+        result = _compute_mf_metrics(prof, inc, bal, annual)
 
-        tca  = _latest(bal, "totalCurrentAssets")
-        tcl  = _latest(bal, "totalCurrentLiabilities")
-        ppe  = _latest(bal, "propertyPlantEquipmentNet")
-        cash = _latest(bal, "cashAndShortTermInvestments")
-        debt = _first_available(bal, ["totalDebt", "shortTermDebt", "longTermDebt"]) or 0.0
-
-        mcap = prof.get("mktCap") if prof.get("mktCap") is not None else prof.get("marketCap")
-        try:
-            mcap = float(mcap) if mcap is not None else None
-        except Exception:
-            mcap = None
-
-        if None in (ebit, tca, tcl, ppe, cash, mcap):
+        if result is None or "reason" in result:
             return None
 
-        ev = mcap + debt - cash
+        return {"ticker": symbol, **result}
 
-        nwc = (tca - cash) - (tcl - debt)
-        nwc = max(nwc, 0)
-        goodwill    = _latest(bal, "goodwill") or 0
-        intangibles = _latest(bal, "intangibleAssets") or 0
-        capital = nwc + ppe
-
-        if ev <= 0 or ev < mcap * 0.01:
-            return None
-        if capital <= 0 or capital < 10e6:
-            return None
-        if ebit < 0:
-            return None
-
-        ey  = ebit / ev
-        roc = ebit / capital
-
-        if roc > 10.0:
-            return None
-
-        return {
-            "ticker":    symbol,
-            "name":      company_name,
-            "exchange":  prof.get("exchangeShortName"),
-            "country":   prof.get("country"),
-            "sector":    prof.get("sector"),
-            "industry":  prof.get("industry"),
-            "marketCap": mcap,
-            "EV":        ev,
-            "EBIT":      ebit,
-            "NWC":       nwc,
-            "PPE_Net":   ppe,
-            "Capital":   capital,
-            "Cash":      cash,
-            "TotalDebt": debt,
-            "EY":        ey,
-            "ROC":       roc,
-            "Goodwill":  goodwill,
-            "Intangibles": intangibles,
-        }
     except Exception as e:
         print(f"[compute_mf_from_vault] {symbol}: {e}")
         return None
