@@ -10,6 +10,7 @@ import uuid
 import random
 import pandas as pd
 import sqlite3
+from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Add current directory to path so magicformula imports correctly
