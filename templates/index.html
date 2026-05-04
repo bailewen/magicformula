@@ -506,7 +506,7 @@ document.getElementById("run-btn").addEventListener("click", async () => {
   const mcapInput = document.getElementById("min-mcap");
   const mcap = parseFloat(mcapInput.value.replace(/,/g, "")) || 50000000;
   if (mcap < 50000000) {
-      mcapInput.setCustomValidity("Minimum market cap: $50,000,000.");
+      mcapInput.setCustomValidity("Minimum market cap: $50,000,000");
       mcapInput.reportValidity();
       return;
   }
