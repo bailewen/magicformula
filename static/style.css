@@ -466,3 +466,39 @@ tr:hover td { background: var(--accent-dim); }
   cursor: help;
   margin-left: 3px;
 }
+@media (max-width: 768px) {
+  .desktop-only { display: none; }
+  .layout { flex-direction: column; }
+
+  .sidebar {
+    width: 100%;
+    min-width: 100%;
+    height: auto;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    display: block;
+  }
+
+  .sidebar-inner { padding: 16px; }
+  .main { padding: 16px; }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .tk-cards { grid-template-columns: repeat(2, 1fr); }
+  .tk-sections { grid-template-columns: 1fr; }
+
+  .tk-header { flex-direction: column; gap: 12px; }
+
+  .tk-rank-block {
+    text-align: left;
+    margin-left: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .tk-rank-label { margin-bottom: 0; }
+  .tk-rank-value { font-size: 20px; }
+  .tk-name-row h2 { font-size: 16px; }
+  .tk-name-row { flex-wrap: wrap; }
+}
+
