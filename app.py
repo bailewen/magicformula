@@ -160,6 +160,111 @@ def stock_detail(ticker):
         mf_row=mf_row,
         not_found=False
     )
+@app.route("/ticker/<symbol>")
+def ticker_lookup(symbol):
+    symbol = symbol.upper().strip()
+
+    conn = sqlite3.connect(mf.DB_PATH)
+    conn.row_factory = sqlite3.Row
+
+    # ── 1. Pull from raw_json_vault ──────────────────────────────────────
+    ENDPOINTS = ["profile", "quote", "income-statement",
+                 "balance-sheet-statement", "ratios-ttm", "key-metrics-ttm"]
+
+    rows = conn.execute(
+        "SELECT endpoint, json_blob, last_updated FROM raw_json_vault WHERE ticker = ?",
+        (symbol,)
+    ).fetchall()
+
+    vault = {r["endpoint"]: (json.loads(r["json_blob"]), r["last_updated"]) for r in rows}
+
+    source = "vault"
+    last_updated = None
+
+    # ── 2. Fall back to live FMP if not in vault ─────────────────────────
+    if not vault:
+        source = "live"
+        for ep in ENDPOINTS:
+            try:
+                data = mf.fmp_get(f"/{ep}/{symbol}")
+                if data:
+                    vault[ep] = (data, None)
+            except Exception as e:
+                print(f"[ticker_lookup] {ep}/{symbol}: {e}")
+
+    if not vault:
+        conn.close()
+        return jsonify({"error": f"No data found for {symbol}"}), 404
+
+    def get(ep):
+        """Return parsed data for an endpoint, unwrapping single-item lists."""
+        pair = vault.get(ep)
+        if not pair:
+            return {}
+        data = pair[0]
+        if last_updated is None and pair[1]:
+            pass  # captured below
+        if isinstance(data, list):
+            return data[0] if data else {}
+        return data or {}
+
+    # Grab last_updated from whichever endpoint has it
+    for ep in ENDPOINTS:
+        if ep in vault and vault[ep][1]:
+            last_updated = vault[ep][1]
+            break
+
+    profile     = get("profile")
+    quote_data  = get("quote")
+    income      = get("income-statement")
+    balance     = get("balance-sheet-statement")
+    ratios      = get("ratios-ttm")
+    key_metrics = get("key-metrics-ttm")
+
+    # ── 3. MF rank from company_cache ────────────────────────────────────
+    mf_data = {}
+    try:
+        # Get this stock's metrics
+        row = conn.execute(
+            "SELECT EY, ROC, MF_score FROM company_cache WHERE ticker = ?",
+            (symbol,)
+        ).fetchone()
+
+        if row:
+            # Count total ranked stocks and find rank
+            total = conn.execute(
+                "SELECT COUNT(*) FROM company_cache WHERE MF_score IS NOT NULL"
+            ).fetchone()[0]
+
+            rank_row = conn.execute(
+                "SELECT COUNT(*) FROM company_cache WHERE MF_score < ?",
+                (row["MF_score"],)
+            ).fetchone()
+
+            mf_data = {
+                "ey":       row["EY"],
+                "roc":      row["ROC"],
+                "mf_score": row["MF_score"],
+                "rank":     (rank_row[0] + 1) if rank_row else None,
+                "total":    total,
+            }
+    except Exception as e:
+        print(f"[ticker_lookup] MF rank error: {e}")
+
+    conn.close()
+
+    return jsonify({
+        "profile":      profile,
+        "quote":        quote_data,
+        "income":       income,
+        "balance":      balance,
+        "ratios":       ratios,
+        "key_metrics":  key_metrics,
+        "mf":           mf_data,
+        "source":       source,
+        "last_updated": last_updated,
+    })
+
 
 # ── Background scan logic ──────────────────────────────────────────────────────
 

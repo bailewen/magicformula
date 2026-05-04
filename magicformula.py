@@ -243,7 +243,6 @@ def check_financial_health(symbol: str,
     
     return results
 
-
 def _latest(items: List[Dict[str, Any]], field: str):
     if not items:
         return None
@@ -403,7 +402,98 @@ def pull_company(symbol: str, annual: bool = False, subtract_intangibles: bool =
     except Exception as e:
         return {"type": "skip", "ticker": symbol, "name": symbol,
                 "reason": f"Exception: {str(e)}"}
+#---------------------compute from vault----------------
+def compute_mf_from_vault(symbol: str, vault: dict, annual: bool = True) -> Optional[Dict[str, Any]]:
+    """
+    Compute MF metrics from pre-fetched vault blobs.
+    vault = {"profile": [...], "income-statement": [...], "balance-sheet-statement": [...], ...}
+    Mirrors pull_company() logic without making API calls.
+    """
+    try:
+        prof_raw = vault.get("profile", [])
+        prof = prof_raw[0] if isinstance(prof_raw, list) else prof_raw
+        if not prof:
+            return None
 
+        company_name = prof.get("companyName") or prof.get("company") or symbol
+
+        if prof.get("sector") in EXCLUDE_SECTORS:
+            return None
+
+        name = prof.get("companyName", "").lower()
+        if any(x in name for x in ["preferred", "perpetual", "series a", "series b"]):
+            return None
+
+        inc = vault.get("income-statement", [])
+        bal_raw = vault.get("balance-sheet-statement", [])
+        bal = bal_raw if isinstance(bal_raw, list) else [bal_raw]
+
+        if annual:
+            ebit = _latest(inc, "operatingIncome")
+        elif inc and len(inc) >= 4:
+            ebit = sum(q.get("operatingIncome") or 0 for q in inc[:4])
+        else:
+            ebit = None
+
+        tca  = _latest(bal, "totalCurrentAssets")
+        tcl  = _latest(bal, "totalCurrentLiabilities")
+        ppe  = _latest(bal, "propertyPlantEquipmentNet")
+        cash = _latest(bal, "cashAndShortTermInvestments")
+        debt = _first_available(bal, ["totalDebt", "shortTermDebt", "longTermDebt"]) or 0.0
+
+        mcap = prof.get("mktCap") if prof.get("mktCap") is not None else prof.get("marketCap")
+        try:
+            mcap = float(mcap) if mcap is not None else None
+        except Exception:
+            mcap = None
+
+        if None in (ebit, tca, tcl, ppe, cash, mcap):
+            return None
+
+        ev = mcap + debt - cash
+
+        nwc = (tca - cash) - (tcl - debt)
+        nwc = max(nwc, 0)
+        goodwill    = _latest(bal, "goodwill") or 0
+        intangibles = _latest(bal, "intangibleAssets") or 0
+        capital = nwc + ppe
+
+        if ev <= 0 or ev < mcap * 0.01:
+            return None
+        if capital <= 0 or capital < 10e6:
+            return None
+        if ebit < 0:
+            return None
+
+        ey  = ebit / ev
+        roc = ebit / capital
+
+        if roc > 10.0:
+            return None
+
+        return {
+            "ticker":    symbol,
+            "name":      company_name,
+            "exchange":  prof.get("exchangeShortName"),
+            "country":   prof.get("country"),
+            "sector":    prof.get("sector"),
+            "industry":  prof.get("industry"),
+            "marketCap": mcap,
+            "EV":        ev,
+            "EBIT":      ebit,
+            "NWC":       nwc,
+            "PPE_Net":   ppe,
+            "Capital":   capital,
+            "Cash":      cash,
+            "TotalDebt": debt,
+            "EY":        ey,
+            "ROC":       roc,
+            "Goodwill":  goodwill,
+            "Intangibles": intangibles,
+        }
+    except Exception as e:
+        print(f"[compute_mf_from_vault] {symbol}: {e}")
+        return None
 
 # -------------------- SQLite Cache --------------------
 

@@ -220,31 +220,24 @@
       </div>
 
     <!-- Scatter plot + sector pie -->
-<div class="chart-section">
-  <div style="display: grid; grid-template-columns: 200px 1fr; gap: 1rem; align-items: center; min-width: 0; width: 100%;">
+    <div class="chart-section">
+      <div style="display: grid; grid-template-columns: 200px 1fr; gap: 1rem; align-items: center; min-width: 0; width: 100%;">
 
-    <h3 style="margin: 0; grid-column: 1;">Sectors</h3>
-    <h3 style="margin: 0; grid-column: 2;">📊 Quality vs. Value</h3>
+        <h3 style="margin: 0; grid-column: 1;">Sectors</h3>
+        <h3 style="margin: 0; grid-column: 2;">📊 Quality vs. Value</h3>
 
-    <div id="sector-pie" style="width: 200px; height: 200px; grid-column: 1;"></div>
+        <div id="sector-pie" style="width: 200px; height: 200px; grid-column: 1;"></div>
 
-    <div style="grid-column: 2; position: relative; min-width: 0;">
-      <div id="scatter-plot" style="height: 300px; width: 100%; overflow-x: auto;"></div>
+        <div style="grid-column: 2; position: relative; min-width: 0;">
+          <div id="scatter-plot" style="height: 300px; width: 100%;"></div>
 
-      <button id="show-all-btn" style="
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        margin-top: 0.5rem;
-        font-family: DM Mono, monospace;
-        font-size: 0.75rem;
-        cursor: pointer;">
-        Show All
-      </button>
-    </div>
+          <button id="show-all-btn" style="position: absolute; top: 100%; left: 0; right: 0; margin-top: 0.5rem;">
+            Show All
+          </button>
+        </div>
 
-      </div> <!-- end chart-section -->
+      </div> <!-- end chart grid -->
+    </div> <!-- end chart-section -->
     </div> <!-- end results-state -->
 
     <!-- Error state -->
@@ -257,9 +250,138 @@
 
   </div> <!-- end tab-screener -->
 
-  <div id="tab-ticker" class="hidden">
-    <p>Single Ticker coming soon</p>
+<!-- ── Single Ticker Tab ─────────────────────────────────────────────────── -->
+<!-- Replace: <div id="tab-ticker" class="hidden"><p>Single Ticker coming soon</p></div> -->
+
+<div id="tab-ticker" class="hidden">
+
+  <!-- Search bar -->
+  <div class="ticker-search-row">
+    <input type="text" id="ticker-input" class="input ticker-input" placeholder="e.g. AAPL" maxlength="10">
+    <button id="ticker-btn" class="ticker-btn">Look Up</button>
+    <span id="ticker-error" class="ticker-error hidden"></span>
   </div>
+
+  <!-- States -->
+  <div id="ticker-idle" class="ticker-idle">
+    <div class="idle-icon">🔍</div>
+    <p>Enter a ticker symbol to view fundamentals and Magic Formula metrics.</p>
+  </div>
+
+  <div id="ticker-loading" class="hidden ticker-idle">
+    <div class="idle-icon spin">⏳</div>
+    <p>Loading data…</p>
+  </div>
+
+  <div id="ticker-error-state" class="hidden">
+    <div class="error-box">
+      <div class="error-icon">❌</div>
+      <div id="ticker-error-msg"></div>
+    </div>
+  </div>
+
+  <div id="ticker-result" class="hidden">
+
+    <!-- Company header -->
+    <div class="tk-header">
+      <div class="tk-logo-wrap">
+        <img id="tk-logo" src="" alt="" class="tk-logo hidden">
+        <div id="tk-logo-fallback" class="tk-logo-fallback"></div>
+      </div>
+      <div class="tk-header-text">
+        <div class="tk-name-row">
+          <h2 id="tk-name"></h2>
+          <span id="tk-ticker-badge" class="tk-ticker-badge"></span>
+          <span id="tk-exchange-badge" class="tk-exchange-badge"></span>
+        </div>
+        <div class="tk-meta-row">
+          <span id="tk-sector"></span>
+          <span class="tk-dot">·</span>
+          <span id="tk-industry"></span>
+          <span class="tk-dot">·</span>
+          <span id="tk-country"></span>
+        </div>
+        <div id="tk-description" class="tk-description"></div>
+      </div>
+      <div class="tk-rank-block">
+        <div class="tk-rank-label">MF Rank</div>
+        <div id="tk-rank-value" class="tk-rank-value">—</div>
+        <div id="tk-rank-sub" class="tk-rank-sub"></div>
+      </div>
+    </div>
+
+    <!-- Stat cards row -->
+    <div class="tk-cards">
+      <div class="stat-card"><div class="stat-val" id="tk-price">—</div><div class="stat-label">Price</div></div>
+      <div class="stat-card"><div class="stat-val" id="tk-mcap">—</div><div class="stat-label">Market Cap</div></div>
+      <div class="stat-card"><div class="stat-val" id="tk-ev">—</div><div class="stat-label">EV</div></div>
+      <div class="stat-card"><div class="stat-val" id="tk-ey">—</div><div class="stat-label">Earnings Yield</div></div>
+      <div class="stat-card"><div class="stat-val" id="tk-roc">—</div><div class="stat-label">ROC</div></div>
+      <div class="stat-card"><div class="stat-val" id="tk-mfscore">—</div><div class="stat-label">MF Score</div></div>
+    </div>
+
+    <!-- Detail sections -->
+    <div class="tk-sections">
+
+      <div class="tk-section">
+        <div class="tk-section-title">Valuation</div>
+        <table class="tk-table">
+          <tr><td class="tk-td-label">P/E (TTM)</td><td id="tk-pe" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">P/B</td><td id="tk-pb" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">EV / EBITDA</td><td id="tk-ev-ebitda" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">EV / Revenue</td><td id="tk-ev-rev" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">P/FCF</td><td id="tk-pfcf" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">52-wk High</td><td id="tk-52h" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">52-wk Low</td><td id="tk-52l" class="tk-td-val">—</td></tr>
+        </table>
+      </div>
+
+      <div class="tk-section">
+        <div class="tk-section-title">Profitability</div>
+        <table class="tk-table">
+          <tr><td class="tk-td-label">Gross Margin</td><td id="tk-gross-margin" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">Operating Margin</td><td id="tk-op-margin" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">Net Margin</td><td id="tk-net-margin" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">ROE</td><td id="tk-roe" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">ROA</td><td id="tk-roa" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">ROIC</td><td id="tk-roic" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">EBITDA</td><td id="tk-ebitda" class="tk-td-val">—</td></tr>
+        </table>
+      </div>
+
+      <div class="tk-section">
+        <div class="tk-section-title">Financial Health</div>
+        <table class="tk-table">
+          <tr><td class="tk-td-label">Current Ratio</td><td id="tk-current-ratio" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">Debt / Equity</td><td id="tk-de" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">Interest Coverage</td><td id="tk-int-cov" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">Cash & Equiv.</td><td id="tk-cash" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">Total Debt</td><td id="tk-debt" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">FCF / Share</td><td id="tk-fcf-share" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">Dividend Yield</td><td id="tk-div-yield" class="tk-td-val">—</td></tr>
+        </table>
+      </div>
+
+      <div class="tk-section">
+        <div class="tk-section-title">Growth</div>
+        <table class="tk-table">
+          <tr><td class="tk-td-label">Revenue (TTM)</td><td id="tk-revenue" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">Revenue Growth</td><td id="tk-rev-growth" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">EPS (TTM)</td><td id="tk-eps" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">EPS Growth</td><td id="tk-eps-growth" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">Net Income</td><td id="tk-net-income" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">Shares Out.</td><td id="tk-shares" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">Beta</td><td id="tk-beta" class="tk-td-val">—</td></tr>
+        </table>
+      </div>
+
+    </div><!-- end tk-sections -->
+
+    <div id="tk-source-note" class="tk-source-note"></div>
+
+  </div><!-- end ticker-result -->
+</div><!-- end tab-ticker -->
+
 
 </main>
 
@@ -422,7 +544,7 @@ async function fetchAndRenderResults(scan_id, count, total_analyzed, summary) {
   const res = await fetch(`/results/${scan_id}`);
   if (!res.ok) {
     showError("Failed to fetch results"); return;  }
-  
+
   const data = await res.json();
   currentResults = data.results;
   currentScanId = scan_id;
@@ -597,16 +719,231 @@ document.getElementById("stop-btn").addEventListener("click", async () => {
   showError("Scan stopped.");
 });
 // ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tabName) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
+  document.getElementById('tab-screener').classList.add('hidden');
+  document.getElementById('tab-ticker').classList.add('hidden');
+  document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+  localStorage.setItem('activeTab', tabName);
+}
+
 document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById('tab-screener').classList.add('hidden');
-    document.getElementById('tab-ticker').classList.add('hidden');
-    document.getElementById(`tab-${tab.dataset.tab}`).classList.remove('hidden');
-  });
+  tab.addEventListener('click', () => switchTab(tab.dataset.tab));
 });
 
+// Restore last active tab on load
+const savedTab = localStorage.getItem('activeTab');
+if (savedTab) switchTab(savedTab);
+
 </script>
+
+  <script>
+  // ── Single Ticker ──────────────────────────────────────────────────────────
+
+  function tkShow(id) {
+    ["ticker-idle","ticker-loading","ticker-error-state","ticker-result"].forEach(s => {
+      document.getElementById(s).classList.toggle("hidden", s !== id);
+    });
+  }
+
+  function tkFmt(val, type) {
+    if (val === null || val === undefined || val === "" || isNaN(val)) return "—";
+    switch (type) {
+      case "price":   return "$" + parseFloat(val).toFixed(2);
+      case "large":   return Math.abs(val) >= 1e9
+                        ? "$" + (val/1e9).toFixed(2) + "B"
+                        : "$" + (val/1e6).toFixed(1) + "M";
+      case "pct":     return (parseFloat(val) * 100).toFixed(2) + "%";
+      case "x":       return parseFloat(val).toFixed(2) + "x";
+      case "ratio":   return parseFloat(val).toFixed(2);
+      case "int":     return Math.round(val).toLocaleString();
+      default:        return val;
+    }
+  }
+
+  function tkColor(el, val, goodHigh = true) {
+    if (!val || isNaN(val)) return;
+    const positive = goodHigh ? val > 0 : val < 0;
+    el.classList.toggle("tk-val-positive", positive);
+    el.classList.toggle("tk-val-negative", !positive);
+  }
+
+  async function lookupTicker() {
+    const raw = document.getElementById("ticker-input").value.trim().toUpperCase();
+    const errSpan = document.getElementById("ticker-error");
+    errSpan.classList.add("hidden");
+
+    if (!raw) {
+      errSpan.textContent = "Enter a ticker symbol.";
+      errSpan.classList.remove("hidden");
+      return;
+    }
+
+    document.getElementById("ticker-btn").disabled = true;
+    tkShow("ticker-loading");
+
+    let data;
+    try {
+      const res = await fetch(`/ticker/${raw}`);
+      data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Not found");
+    } catch (e) {
+      document.getElementById("ticker-error-msg").textContent = e.message;
+      tkShow("ticker-error-state");
+      document.getElementById("ticker-btn").disabled = false;
+      return;
+    }
+
+    document.getElementById("ticker-btn").disabled = false;
+    localStorage.setItem('lastTicker', raw);
+    renderTicker(raw, data);
+  }
+
+  function renderTicker(ticker, d) {
+    const profile    = d.profile     || {};
+    const quote      = d.quote       || {};
+    const ratios     = d.ratios      || {};
+    const keyMetrics = d.key_metrics || {};
+    const income     = d.income      || {};
+    const balance    = d.balance     || {};
+    const mf         = d.mf          || {};
+
+    const logoEl     = document.getElementById("tk-logo");
+    const fallbackEl = document.getElementById("tk-logo-fallback");
+    const logoUrl    = profile.image || profile.logo;
+    if (logoUrl) {
+      logoEl.src = logoUrl;
+      logoEl.classList.remove("hidden");
+      fallbackEl.style.display = "none";
+      logoEl.onerror = () => {
+        logoEl.classList.add("hidden");
+        fallbackEl.style.display = "";
+        fallbackEl.textContent = ticker.slice(0, 3);
+      };
+    } else {
+      logoEl.classList.add("hidden");
+      fallbackEl.style.display = "";
+      fallbackEl.textContent = ticker.slice(0, 3);
+    }
+
+    document.getElementById("tk-name").textContent           = profile.companyName || ticker;
+    document.getElementById("tk-ticker-badge").textContent   = ticker;
+    document.getElementById("tk-exchange-badge").textContent = profile.exchangeShortName || profile.exchange || "";
+    document.getElementById("tk-sector").textContent         = profile.sector || "—";
+    document.getElementById("tk-industry").textContent       = profile.industry || "—";
+    document.getElementById("tk-country").textContent        = profile.country || "—";
+
+    const descEl = document.getElementById("tk-description");
+    const desc = profile.description || "";
+    descEl.textContent = desc;
+    descEl.classList.remove("expanded");
+    const old = descEl.nextElementSibling;
+    if (old && old.classList.contains("tk-desc-toggle")) old.remove();
+    if (desc.length > 180) {
+      const btn = document.createElement("button");
+      btn.className = "tk-desc-toggle";
+      btn.textContent = "Show more";
+      btn.onclick = () => {
+        const expanded = descEl.classList.toggle("expanded");
+        btn.textContent = expanded ? "Show less" : "Show more";
+      };
+      descEl.after(btn);
+    }
+
+    const rankEl  = document.getElementById("tk-rank-value");
+    const rankSub = document.getElementById("tk-rank-sub");
+    if (mf.rank) {
+      rankEl.textContent  = mf.rank;
+      rankSub.textContent = mf.total ? `of ${mf.total.toLocaleString()}` : "";
+    } else {
+      rankEl.textContent  = "none";
+      rankSub.textContent = "not in DB";
+    }
+
+    set("tk-price",   tkFmt(quote.price || profile.price, "price"));
+    set("tk-mcap",    tkFmt(quote.marketCap || profile.mktCap, "large"));
+    set("tk-ev",      tkFmt(keyMetrics.enterpriseValueTTM, "large"));
+    const eyEl  = document.getElementById("tk-ey");
+    const rocEl = document.getElementById("tk-roc");
+    eyEl.textContent  = mf.ey  ? tkFmt(mf.ey,  "pct") : tkFmt(keyMetrics.earningsYieldTTM, "pct");
+    rocEl.textContent = mf.roc ? tkFmt(mf.roc, "pct") : "n/a";
+    tkColor(eyEl, parseFloat(mf.ey || keyMetrics.earningsYieldTTM));
+    set("tk-mfscore", mf.mf_score ? Math.round(mf.mf_score) : "n/a");
+
+    set("tk-pe",        tkFmt(ratios.peRatioTTM, "ratio"));
+    set("tk-pb",        tkFmt(ratios.priceToBookRatioTTM, "ratio"));
+    set("tk-ev-ebitda", tkFmt(keyMetrics.evToOperatingCashFlowTTM || ratios.enterpriseValueMultipleTTM, "x"));
+    set("tk-ev-rev",    tkFmt(keyMetrics.evToSalesTTM, "x"));
+    set("tk-pfcf",      tkFmt(ratios.priceToFreeCashFlowsRatioTTM, "ratio"));
+    set("tk-52h",       tkFmt(quote.yearHigh, "price"));
+    set("tk-52l",       tkFmt(quote.yearLow,  "price"));
+
+    const gmEl   = document.getElementById("tk-gross-margin");
+    const omEl   = document.getElementById("tk-op-margin");
+    const nmEl   = document.getElementById("tk-net-margin");
+    const roeEl  = document.getElementById("tk-roe");
+    const roaEl  = document.getElementById("tk-roa");
+    const roicEl = document.getElementById("tk-roic");
+    gmEl.textContent   = tkFmt(ratios.grossProfitMarginTTM,     "pct");
+    omEl.textContent   = tkFmt(ratios.operatingProfitMarginTTM, "pct");
+    nmEl.textContent   = tkFmt(ratios.netProfitMarginTTM,       "pct");
+    roeEl.textContent  = tkFmt(ratios.returnOnEquityTTM,        "pct");
+    roaEl.textContent  = tkFmt(ratios.returnOnAssetsTTM,        "pct");
+    roicEl.textContent = tkFmt(keyMetrics.roicTTM,              "pct");
+    [gmEl, omEl, nmEl, roeEl, roaEl, roicEl].forEach(el => tkColor(el, parseFloat(el.textContent)));
+    set("tk-ebitda", tkFmt(income.ebitda || (Array.isArray(income) ? income[0]?.ebitda : null), "large"));
+
+    const deEl = document.getElementById("tk-de");
+    const icEl = document.getElementById("tk-int-cov");
+    set("tk-current-ratio", tkFmt(ratios.currentRatioTTM, "ratio"));
+    deEl.textContent = tkFmt(ratios.debtEquityRatioTTM,  "ratio");
+    icEl.textContent = tkFmt(ratios.interestCoverageTTM, "ratio");
+    tkColor(deEl, parseFloat(deEl.textContent), false);
+    tkColor(icEl, parseFloat(icEl.textContent));
+    const bal = Array.isArray(balance) ? balance[0] : balance;
+    set("tk-cash",      tkFmt(bal?.cashAndCashEquivalents, "large"));
+    set("tk-debt",      tkFmt(bal?.totalDebt, "large"));
+    set("tk-fcf-share", tkFmt(keyMetrics.freeCashFlowPerShareTTM, "price"));
+    set("tk-div-yield", tkFmt(ratios.dividendYieldTTM, "pct"));
+
+    const rgEl = document.getElementById("tk-rev-growth");
+    const egEl = document.getElementById("tk-eps-growth");
+    const inc  = Array.isArray(income) ? income[0] : income;
+    set("tk-revenue",    tkFmt(inc?.revenue, "large"));
+    rgEl.textContent   = tkFmt(ratios.revenueGrowthTTM, "pct");
+    set("tk-eps",        tkFmt(quote.eps, "ratio"));
+    egEl.textContent   = tkFmt(keyMetrics.epsGrowthTTM || ratios.epsGrowthTTM, "pct");
+    [rgEl, egEl].forEach(el => tkColor(el, parseFloat(el.textContent)));
+    set("tk-net-income", tkFmt(inc?.netIncome, "large"));
+    set("tk-shares",     tkFmt(profile.sharesOutstanding || quote.sharesOutstanding, "int"));
+    set("tk-beta",       tkFmt(profile.beta, "ratio"));
+
+    const note = document.getElementById("tk-source-note");
+    note.textContent = d.source === "live"
+      ? `⚡ Live data fetched from FMP · ${new Date().toLocaleString()}`
+      : `🗄 From local vault · last updated ${d.last_updated || "unknown"}`;
+
+    tkShow("ticker-result");
+  }
+
+  function set(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  }
+
+  document.getElementById("ticker-btn").addEventListener("click", lookupTicker);
+  document.getElementById("ticker-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") lookupTicker();
+  });
+
+  // Restore last ticker lookup on load
+  const savedTicker = localStorage.getItem('lastTicker');
+  if (savedTicker) {
+    document.getElementById('ticker-input').value = savedTicker;
+    if (savedTab === 'ticker') lookupTicker();
+  }
+
+  </script>
 </body>
 </html>
