@@ -86,7 +86,7 @@ limiter = RateLimiter(calls_per_minute=300)
 try:
     from tqdm import tqdm  # progress bar (optional)
 except Exception:  # pragma: no cover
-    def tqdm(x, **k):
+    def tqdm(x, **_):
         return x
 
 FMP_BASE = "https://financialmodelingprep.com/api/v3"
@@ -263,7 +263,8 @@ def _first_available(items: List[Dict[str, Any]], fields: List[str]):
 
 
 # -------------------- Field helpers --------------------
-def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool) -> Optional[Dict[str, Any]]:
+def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_goodwill: bool = False,
+                            include_intangibles: bool = False) -> Optional[Dict[str, Any]]:
     """
     Core MF computation from pre-parsed data structures.
     Returns a result dict on success, or a dict with 'reason' key on skip, or None.
@@ -305,9 +306,13 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool) -> Optio
 
     nwc = (tca - cash) - (tcl - debt)
     nwc = max(nwc, 0)
-    goodwill    = _latest(bal, "goodwill") or 0
+    goodwill = _latest(bal, "goodwill") or 0
     intangibles = _latest(bal, "intangibleAssets") or 0
-    capital = nwc + ppe
+    if not include_goodwill:
+        goodwill = 0
+    if not include_intangibles:
+        intangibles = 0
+    capital = nwc + ppe + goodwill + intangibles
 
     if ev <= 0:
         return {"reason": "Negative or zero EV"}
@@ -346,7 +351,8 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool) -> Optio
         "Intangibles": intangibles,
     }
 
-def pull_company(symbol: str, annual: bool = False, subtract_intangibles: bool = True) -> Optional[Dict[str, Any]]:
+def pull_company(symbol: str, annual: bool = False, include_goodwill: bool = False,
+                     include_intangibles: bool = False) -> Optional[Dict[str, Any]]:
     try:
         prof = fmp_profile(symbol)
         if not prof:
@@ -355,7 +361,7 @@ def pull_company(symbol: str, annual: bool = False, subtract_intangibles: bool =
         inc = fmp_income(symbol, annual)
         bal = fmp_balance(symbol)
 
-        result = _compute_mf_metrics(prof, inc, bal, annual)
+        result = _compute_mf_metrics(prof, inc, bal, annual, include_goodwill, include_intangibles)
 
         if result is None:
             return None
@@ -531,12 +537,13 @@ def db_fetch(ticker: str, period: str, max_age_days: int = 7) -> Optional[Dict[s
         }
     return None
 
-def fetch_company_with_cache(symbol: str, annual: bool = False, subtract_intangibles: bool = True) -> Optional[
-        Dict[str, Any]]:
+def fetch_company_with_cache(symbol: str, annual: bool = False, include_goodwill: bool = False, include_intangibles: bool = False) -> Optional[Dict[str, Any]]:
     """Fetch company data, using database cache when available."""
     period = "annual" if annual else "ttm"
-    if subtract_intangibles:
-        period += "_gi"
+    if include_goodwill:
+        period += "_g"
+    if include_intangibles:
+        period += "_i"
 
     # Try to fetch from cache first
     cached = db_fetch(symbol, period)
@@ -544,7 +551,7 @@ def fetch_company_with_cache(symbol: str, annual: bool = False, subtract_intangi
         return cached
 
     # Not in cache or expired, fetch fresh data
-    rec = pull_company(symbol, annual, subtract_intangibles)
+    rec = pull_company(symbol, annual, include_goodwill, include_intangibles)
 
     # Cache successful records
     if rec and rec.get("type") == "success":
@@ -586,9 +593,10 @@ def main():
                 help="Use annual data instead of TTM quarterly")
     ap.add_argument("--health-checks", action="store_true",
                     help="Run D/E and cash flow health checks on top candidates")
-    ap.add_argument("--no-intangibles", action="store_false", dest="subtract_intangibles",
-                    help="Exclude goodwill/intangibles from capital calculation")
-    ap.set_defaults(subtract_intangibles=True)
+    ap.add_argument("--goodwill", action="store_true", dest="include_goodwill",
+                    help="Include goodwill in capital calculation")
+    ap.add_argument("--intangibles", action="store_true", dest="include_intangibles",
+                    help="Include intangibles in capital calculation")
 
     args = ap.parse_args()
 
@@ -630,8 +638,8 @@ def main():
     records = []
     skipped = []
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(fetch_company_with_cache, sym, args.annual, args.subtract_intangibles): sym for sym
-                   in symbols}
+        futures = {executor.submit(fetch_company_with_cache, sym, args.annual, args.include_goodwill,
+                                   args.include_intangibles): sym for sym in symbols}
         for future in tqdm(as_completed(futures), total=len(futures), desc="Pulling fundamentals"):
             try:
                 rec = future.result(timeout=5)

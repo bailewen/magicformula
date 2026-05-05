@@ -331,6 +331,8 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue):
         use_annual = params.get("use_annual", True)
         check_debt_revenue = params.get("check_debt_revenue", False)
         check_cashflow = params.get("check_cashflow", False)
+        include_goodwill = params.get("include_goodwill", False)
+        include_intangibles = params.get("include_intangibles", False)
 
         # Country filter
         selected_countries = params.get("selected_countries", ["US"])
@@ -383,7 +385,8 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue):
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = {
-                executor.submit(mf.fetch_company_with_cache, sym, use_annual, False): sym
+                executor.submit(mf.fetch_company_with_cache, sym, use_annual, include_goodwill,
+                                include_intangibles): sym
                 for sym in all_symbols
             }
             for future in as_completed(futures):

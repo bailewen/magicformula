@@ -83,6 +83,8 @@
         <div class="section-label">Options</div>
         <label class="toggle-row"><input type="checkbox" id="use-random" checked> Randomize symbol selection</label>
         <label class="toggle-row"><input type="checkbox" id="use-annual" checked> Use Annual Data (instead of TTM)</label>
+        <label class="toggle-row"><input type="checkbox" id="include-goodwill"> Include goodwill in (ROC)</label>
+        <label class="toggle-row"><input type="checkbox" id="include-intangibles"> Include intangibles in (ROC)</label>
         <div class="divider"></div>
         <div class="section-label">Exchanges</div>
         <label class="toggle-row"><input type="checkbox" class="exchange-cb" value="NASDAQ" checked> NASDAQ</label>
@@ -493,6 +495,8 @@ function collectParams() {
       top_n: parseInt(document.getElementById("top-n").value),
       use_random: document.getElementById("use-random").checked,
       use_annual: document.getElementById("use-annual").checked,
+      include_goodwill: document.getElementById("include-goodwill").checked,
+      include_intangibles: document.getElementById("include-intangibles").checked,
       check_debt_revenue: document.getElementById("check-debt-revenue").checked,
       check_cashflow: document.getElementById("check-cashflow").checked,
       selected_countries: countries,
