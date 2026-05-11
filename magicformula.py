@@ -59,6 +59,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from collections import deque
 from datetime import timedelta
+import threading
 
 #---filter dataset for actual active stock 
 
@@ -70,17 +71,19 @@ class RateLimiter:
         self.calls_per_minute = calls_per_minute
         self.window = 60.0
         self.calls = deque()
+        self.lock = threading.Lock()
 
     def wait(self):
-        now = time.time()
-        # pop timestamps older than 60s
-        while self.calls and now - self.calls[0] > self.window:
-            self.calls.popleft()
-        if len(self.calls) >= self.calls_per_minute:
-            sleep_for = self.window - (now - self.calls[0]) + 0.01
-            if sleep_for > 0:
-                time.sleep(sleep_for)
-        self.calls.append(time.time())
+        with self.lock:
+            now = time.time()
+            # pop timestamps older than 60s
+            while self.calls and now - self.calls[0] > self.window:
+                self.calls.popleft()
+            if len(self.calls) >= self.calls_per_minute:
+                sleep_for = self.window - (now - self.calls[0]) + 0.01
+                if sleep_for > 0:
+                    time.sleep(sleep_for)
+            self.calls.append(time.time())
 limiter = RateLimiter(calls_per_minute=300)
 
 try:
