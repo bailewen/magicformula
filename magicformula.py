@@ -111,13 +111,14 @@ EXCLUDE_SECTORS = {
 S = requests.Session()
 S.headers.update({"User-Agent": "MagicFormulaFMB/1.0"})
 
-def fmp_get(path: str, params: Optional[Dict[str, Any]] = None, retries: int = 3, backoff: float = 0.8):
+def fmp_get(path: str, params: Optional[Dict[str, Any]] = None, retries: int = 3, backoff: float = 0.8, api_key: str = None):
     if params is None:
         params = {}
 
-    api_key = os.getenv("FMP_API_KEY", "")
     if not api_key:
-        raise RuntimeError("FMP_API_KEY not set. export FMP_API_KEY=YOUR_KEY")
+        api_key = os.getenv("FMP_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("FMP_API_KEY not set. Provide it directly or set FMP_API_KEY environment variable")
  
     params = dict(params)
     params["apikey"] = api_key
@@ -135,7 +136,7 @@ def fmp_get(path: str, params: Optional[Dict[str, Any]] = None, retries: int = 3
 
 # -------------------- Data pulling --------------------
 
-def list_symbols(ex: str, min_mcap: float = 50e6, countries: List[str] = None) -> List[Dict[str, Any]]:
+def list_symbols(ex: str, min_mcap: float = 50e6, countries: List[str] = None, api_key: str = None) -> List[Dict[str, Any]]:
     """Return only active US common stocks above min_mcap."""
     
     rows = fmp_get(
@@ -147,6 +148,7 @@ def list_symbols(ex: str, min_mcap: float = 50e6, countries: List[str] = None) -
         "isActivelyTrading": True,
         "limit": 10000,
     },
+    api_key=api_key
     ) or []
     
     filtered = []
@@ -169,24 +171,25 @@ def list_symbols(ex: str, min_mcap: float = 50e6, countries: List[str] = None) -
 
     return filtered
 
-def fmp_profile(ticker: str) -> Dict[str, Any]:
-    prof = fmp_get(f"/profile/{ticker}") or []
+def fmp_profile(ticker: str, api_key: str = None) -> Dict[str, Any]:
+    prof = fmp_get(f"/profile/{ticker}", api_key=api_key) or []
     return prof[0] if isinstance(prof, list) and prof else {}
 
 
-def fmp_income(ticker: str, annual: bool = False) -> List[Dict[str, Any]]:
+def fmp_income(ticker: str, annual: bool = False, api_key: str = None) -> List[Dict[str, Any]]:
     if annual:
-        return fmp_get(f"/income-statement/{ticker}", {"period": "annual", "limit": 1}) or []
-    return fmp_get(f"/income-statement/{ticker}", {"period": "quarter", "limit": 4}) or []
+        return fmp_get(f"/income-statement/{ticker}", {"period": "annual", "limit": 1}, api_key=api_key) or []
+    return fmp_get(f"/income-statement/{ticker}", {"period": "quarter", "limit": 4}, api_key=api_key) or []
 
-def fmp_balance(ticker: str) -> List[Dict[str, Any]]:
-    return fmp_get(f"/balance-sheet-statement/{ticker}", {"period": "quarter", "limit": 1}) or []
+def fmp_balance(ticker: str, api_key: str = None) -> List[Dict[str, Any]]:
+    return fmp_get(f"/balance-sheet-statement/{ticker}", {"period": "quarter", "limit": 1}, api_key=api_key) or []
 
 def check_financial_health(symbol: str,
     check_debt_revenue: bool = False,
     check_cashflow_quality: bool = False,
     debt_revenue_quarters: int = 6,
-    cashflow_quarters: int = 8) -> dict:
+    cashflow_quarters: int = 8,
+    api_key: str = None) -> dict:
     """
     Optional health checks.
     Returns dict with pass/fail for each enabled check.
@@ -197,9 +200,9 @@ def check_financial_health(symbol: str,
     if check_debt_revenue:
         try:
             bs_data = fmp_get(f"/balance-sheet-statement/{symbol}", 
-                             {"period": "quarter", "limit": debt_revenue_quarters})
+                             {"period": "quarter", "limit": debt_revenue_quarters}, api_key=api_key)
             is_data = fmp_get(f"/income-statement/{symbol}", 
-                             {"period": "quarter", "limit": debt_revenue_quarters})
+                             {"period": "quarter", "limit": debt_revenue_quarters}, api_key=api_key)
             
             if bs_data and is_data and len(bs_data) >= 3 and len(is_data) >= 3:
                 # Calculate D/E ratios (oldest to newest)
@@ -228,7 +231,7 @@ def check_financial_health(symbol: str,
     if check_cashflow_quality:
         try:
             cf_data = fmp_get(f"/cash-flow-statement/{symbol}", 
-                             {"period": "quarter", "limit": cashflow_quarters})
+                             {"period": "quarter", "limit": cashflow_quarters}, api_key=api_key)
             
             if cf_data and len(cf_data) >= 4:
                 ocf_beats_ni = all(
@@ -355,14 +358,14 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_
     }
 
 def pull_company(symbol: str, annual: bool = False, include_goodwill: bool = False,
-                     include_intangibles: bool = False) -> Optional[Dict[str, Any]]:
+                     include_intangibles: bool = False, api_key: str = None) -> Optional[Dict[str, Any]]:
     try:
-        prof = fmp_profile(symbol)
+        prof = fmp_profile(symbol, api_key=api_key)
         if not prof:
             return {"type": "skip", "ticker": symbol, "name": symbol, "reason": "No profile data"}
 
-        inc = fmp_income(symbol, annual)
-        bal = fmp_balance(symbol)
+        inc = fmp_income(symbol, annual, api_key=api_key)
+        bal = fmp_balance(symbol, api_key=api_key)
 
         result = _compute_mf_metrics(prof, inc, bal, annual, include_goodwill, include_intangibles)
 
@@ -540,7 +543,7 @@ def db_fetch(ticker: str, period: str, max_age_days: int = 7) -> Optional[Dict[s
         }
     return None
 
-def fetch_company_with_cache(symbol: str, annual: bool = False, include_goodwill: bool = False, include_intangibles: bool = False) -> Optional[Dict[str, Any]]:
+def fetch_company_with_cache(symbol: str, annual: bool = False, include_goodwill: bool = False, include_intangibles: bool = False, api_key: str = None) -> Optional[Dict[str, Any]]:
     """Fetch company data, using database cache when available."""
     period = "annual" if annual else "ttm"
     if include_goodwill:
@@ -554,7 +557,7 @@ def fetch_company_with_cache(symbol: str, annual: bool = False, include_goodwill
         return cached
 
     # Not in cache or expired, fetch fresh data
-    rec = pull_company(symbol, annual, include_goodwill, include_intangibles)
+    rec = pull_company(symbol, annual, include_goodwill, include_intangibles, api_key=api_key)
 
     # Cache successful records
     if rec and rec.get("type") == "success":
