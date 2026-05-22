@@ -45,7 +45,6 @@ def start_scan():
     api_key = params.get("api_key") or os.getenv("FMP_API_KEY", "")
     if not api_key:
         return jsonify({"error": "No FMP API key provided."}), 400
-    os.environ["FMP_API_KEY"] = api_key
 
     scan_id = str(uuid.uuid4())
     q = queue.Queue()
@@ -54,7 +53,7 @@ def start_scan():
         _scans[scan_id] = {"queue": q, "results": None, "error": None, "summary": None, "done": False,
                            "created_at": time.time(), "cancelled": False}
 
-    t = threading.Thread(target=_run_scan, args=(scan_id, params, q), daemon=True)
+    t = threading.Thread(target=_run_scan, args=(scan_id, params, q, api_key), daemon=True)
     t.start()
 
     return jsonify({"scan_id": scan_id})
@@ -318,7 +317,7 @@ def _evict_old_scans(max_age_seconds=7200):
         for sid in to_del:
             del _scans[sid]
 
-def _run_scan(scan_id: str, params: dict, q: queue.Queue):
+def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
     scan_start = time.time()
 
     try:
@@ -345,7 +344,7 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue):
         all_symbols = []
         for ex in exchanges_list:
             try:
-                rows = mf.list_symbols(ex, min_mcap, selected_countries)
+                rows = mf.list_symbols(ex, min_mcap, selected_countries, api_key=api_key)
                 for r in rows:
                     sym = r.get("symbol")
                     if sym:
@@ -386,7 +385,7 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue):
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = {
                 executor.submit(mf.fetch_company_with_cache, sym, use_annual, include_goodwill,
-                                include_intangibles): sym
+                                include_intangibles, api_key): sym
                 for sym in all_symbols
             }
             for future in as_completed(futures):
@@ -445,7 +444,8 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue):
                 health = mf.check_financial_health(
                     ticker,
                     check_debt_revenue=check_debt_revenue,
-                    check_cashflow_quality=check_cashflow
+                    check_cashflow_quality=check_cashflow,
+                    api_key=api_key
                 )
                 if health["passes_all"]:
                     healthy_tickers.append(ticker)
