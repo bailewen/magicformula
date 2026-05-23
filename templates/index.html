@@ -957,7 +957,7 @@ async function openTickerModal(ticker) {
       <div class="stat-card"><div class="stat-val">${lrg(keyMetrics.enterpriseValueTTM)}</div><div class="stat-label">EV</div></div>
       <div class="stat-card"><div class="stat-val">${eyVal}</div><div class="stat-label">Earnings Yield</div></div>
       <div class="stat-card"><div class="stat-val">${rocVal}</div><div class="stat-label">ROC</div></div>
-      <div class="stat-card"><div class="stat-val">${mf.mf_score ? Math.round(mf.mf_score) : "n/a"}</div><div class="stat-label">MF Score</div></div>
+      <div class="stat-card"><div class="stat-val">${rat(ratios.peRatioTTM)}</div><div class="stat-label">P/E (TTM)</div></div>
     </div>
 
     <div class="tk-sections">
