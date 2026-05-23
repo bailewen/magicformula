@@ -192,7 +192,7 @@ a:hover { text-decoration: underline; }
 .results-header h2 { font-size: 20px; font-weight: 700; color: var(--text); }
 .results-meta { color: var(--text-muted); font-size: 12px; }
 
-.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
 .stat-card { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; text-align: center; box-shadow: var(--shadow-sm); }
 .stat-val { font-size: 22px; font-weight: 700; color: var(--text); }
 .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
