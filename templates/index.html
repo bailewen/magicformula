@@ -388,6 +388,12 @@
   </div><!-- end ticker-result -->
 </div><!-- end tab-ticker -->
 
+<div id="ticker-modal" class="modal-overlay hidden">
+  <div class="modal-container">
+    <button id="modal-close" class="modal-close">✕</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
 
 </main>
 
@@ -740,41 +746,104 @@ function renderResults(results, count, total_analyzed, summary) {
   showOnly("results-state");
   }
 
-  function renderTable(data) {
-      const cols = ["ticker", "name", "EY", "ROC", "exchange", "industry", "country", "MF_score"];
-      const thead = document.getElementById("results-thead");
-      const tbody = document.getElementById("results-tbody");
+function renderTable(data) {
+  const cols = ["ticker", "name", "EY", "ROC", "exchange", "industry", "country", "MF_score"];
+  const thead = document.getElementById("results-thead");
+  const tbody = document.getElementById("results-tbody");
 
   thead.innerHTML = `<tr>${cols.map(c => {
     const label = c === "MF_score"
-    ? `MF Score <span class="infotip" title="Ranked within this scan only, not the full market">ⓘ</span>`
+      ? `MF Score <span class="infotip" title="Ranked within this scan only, not the full market">ⓘ</span>`
       : (COL_LABELS[c] || c);
     const arrow = sortCol === c ? (sortAsc ? " ▲" : " ▼") : "";
     return `<th style="cursor:pointer;" onclick="sortBy('${c}')">${label}${arrow}</th>`;
   }).join("")}</tr>`;
 
-    tbody.innerHTML = data.map((row, i) =>
-      `<tr class="${i % 2 === 0 ? '' : 'alt'}">
+  tbody.innerHTML = data.map((row, i) =>
+      `<tr class="result-row ${i % 2 === 0 ? '' : 'alt'}" data-ticker="${row.ticker}" style="cursor:pointer;">
         ${cols.map(c => `<td>${fmt(row[c], c)}</td>`).join("")}
+      </tr>
+      <tr class="desc-row hidden" data-ticker="${row.ticker}">
+        <td colspan="${cols.length}" class="desc-cell">
+          <div class="desc-content">Loading…</div>
+        </td>
       </tr>`
-    ).join("");
-    }
+   ).join("");
 
-  function sortBy(col) {
-    if (sortCol === col) {
-      sortAsc = !sortAsc;
-    } else {
-      sortCol = col;
-      sortAsc = true;
-    }
-      const sorted = [...currentResults].sort((a, b) => {
-      const va = a[col], vb = b[col];
-      if (va == null) return 1;
-      if (vb == null) return -1;
-      return sortAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+  tbody.querySelectorAll("tr.result-row").forEach(tr => {
+      tr.addEventListener("click", async () => {
+        const ticker = tr.dataset.ticker;
+        const descRow = tbody.querySelector(`tr.desc-row[data-ticker="${ticker}"]`);
+        const isHidden = descRow.classList.contains("hidden");
+
+        // collapse all others
+        tbody.querySelectorAll("tr.desc-row").forEach(r => r.classList.add("hidden"));
+
+        if (isHidden) {
+          descRow.classList.remove("hidden");
+          const contentEl = descRow.querySelector(".desc-content");
+        if (contentEl.textContent === "Loading…") {
+          const res = await fetch(`/ticker/${ticker}`);
+          const d = await res.json();
+          const profile = d.profile || {};
+          const logoUrl = profile.image || profile.logo;
+          const logoHtml = logoUrl
+            ? `<img src="${logoUrl}" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);object-fit:contain;background:#fafafa;" onerror="this.style.display='none'">`
+            : `<div style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--text-muted);font-family:var(--font-mono);">${ticker.slice(0,3)}</div>`;
+
+          const desc = profile.description || "";
+          contentEl.innerHTML = `
+            <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px;">
+              ${logoHtml}
+              <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px;">
+                <span style="font-size:14px;font-weight:700;color:var(--text);">${profile.companyName || ticker}</span>
+                <span class="tk-ticker-badge">${ticker}</span>
+                <span class="tk-exchange-badge">${profile.exchangeShortName || ""}</span>
+                <button class="financials-btn" data-ticker="${ticker}" ">Financials ↗</button>
+              </div>
+                <div class="tk-meta-row">
+                  <span>${profile.sector || "—"}</span>
+                  <span class="tk-dot">·</span>
+                  <span>${profile.industry || "—"}</span>
+                  <span class="tk-dot">·</span>
+                  <span>${profile.country || "—"}</span>
+                </div>
+              </div>
+            </div>
+            <div class="desc-text">${desc}</div>
+          `;
+
+          const descTextEl = contentEl.querySelector(".desc-text");
+          descTextEl.classList.add("desc-content-inner");
+          if (desc.length > 180) {
+            descTextEl.style.maxHeight = "60px";
+            descTextEl.style.overflow = "hidden";
+            const btn = document.createElement("button");
+            btn.className = "desc-toggle";
+            btn.textContent = "Show more";
+            btn.onclick = () => {
+              const expanded = descTextEl.style.maxHeight === "none";
+              descTextEl.style.maxHeight = expanded ? "60px" : "none";
+              descTextEl.style.overflow = expanded ? "hidden" : "visible";
+              btn.textContent = expanded ? "Show more" : "Show less";
+            };
+            descTextEl.after(btn);
+          }
+        }
+        }
+      });
     });
-    renderTable(sorted);
-  }
+
+    tbody.addEventListener("click", ev => {
+        const btn = ev.target.closest(".financials-btn");
+        if (btn) {
+          ev.stopPropagation();
+          openTickerModal(btn.dataset.ticker);
+        }
+      });
+}
+
 
 // ── Download ───────────────────────────────────────────────────────────────
 document.getElementById("download-btn").addEventListener("click", () => {
@@ -818,7 +887,142 @@ if (savedScan) {
     localStorage.removeItem('lastScanResults');
   }
 }
+  // ─────────── Modal ────────────────────────────────────────
+async function openTickerModal(ticker) {
+  const modal = document.getElementById("ticker-modal");
+  const content = document.getElementById("modal-content");
+  modal.classList.remove("hidden");
+  content.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">⏳ Loading ${ticker}…</div>`;
 
+  const res = await fetch(`/ticker/${ticker}`);
+  const d = await res.json();
+  if (!res.ok) {
+    content.innerHTML = `<div class="error-box"><div class="error-icon">❌</div><div>${d.error || "Failed to load"}</div></div>`;
+    return;
+  }
+
+  const profile    = d.profile     || {};
+  const quote      = d.quote       || {};
+  const ratios     = d.ratios      || {};
+  const keyMetrics = d.key_metrics || {};
+  const income     = d.income      || {};
+  const balance    = d.balance     || {};
+  const mf         = d.mf          || {};
+  const bal        = Array.isArray(balance) ? balance[0] : balance;
+  const inc        = Array.isArray(income)  ? income[0]  : income;
+
+  const pct  = v => (v == null || isNaN(v)) ? "—" : (parseFloat(v)*100).toFixed(2)+"%";
+  const lrg  = v => (v == null || isNaN(v)) ? "—" : Math.abs(v)>=1e9 ? "$"+(v/1e9).toFixed(2)+"B" : "$"+(v/1e6).toFixed(1)+"M";
+  const rat  = v => (v == null || isNaN(v)) ? "—" : parseFloat(v).toFixed(2);
+  const px   = v => (v == null || isNaN(v)) ? "—" : "$"+parseFloat(v).toFixed(2);
+  const x    = v => (v == null || isNaN(v)) ? "—" : parseFloat(v).toFixed(2)+"x";
+
+  const logoUrl = profile.image || profile.logo;
+  const logoHtml = logoUrl
+    ? `<img src="${logoUrl}" style="width:52px;height:52px;border-radius:10px;border:1px solid var(--border);object-fit:contain;background:#fafafa;" onerror="this.style.display='none'">`
+    : `<div style="width:52px;height:52px;border-radius:10px;border:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--text-muted);font-family:var(--font-mono);">${ticker.slice(0,3)}</div>`;
+
+  const eyVal  = mf.ey  ? pct(mf.ey)  : pct(keyMetrics.earningsYieldTTM);
+  const rocVal = mf.roc ? pct(mf.roc) : "n/a";
+
+  content.innerHTML = `
+    <div class="tk-header">
+      <div class="tk-logo-wrap">${logoHtml}</div>
+      <div class="tk-header-text">
+        <div class="tk-name-row">
+          <h2 style="font-size:20px;font-weight:700;color:var(--text);margin:0;">${profile.companyName || ticker}</h2>
+          <span class="tk-ticker-badge">${ticker}</span>
+          <span class="tk-exchange-badge">${profile.exchangeShortName || ""}</span>
+          <span class="tk-last-updated">${d.last_updated ? "Data Fetched: "+d.last_updated.split(" ")[0] : ""}</span>
+        </div>
+        <div class="tk-meta-row">
+          <span>${profile.sector || "—"}</span>
+          <span class="tk-dot">·</span>
+          <span>${profile.industry || "—"}</span>
+          <span class="tk-dot">·</span>
+          <span>${profile.country || "—"}</span>
+        </div>
+        <div class="tk-description" style="max-height:none;">${profile.description || ""}</div>
+      </div>
+      <div class="tk-rank-block">
+        <div class="tk-rank-label">MF Rank</div>
+        <div class="tk-rank-value">${mf.rank || "—"}</div>
+        <div class="tk-rank-sub">${mf.total ? "of "+mf.total.toLocaleString() : ""}</div>
+      </div>
+    </div>
+
+    <div class="tk-cards">
+      <div class="stat-card"><div class="stat-val">${px(quote.price || profile.price)}</div><div class="stat-label">Price</div></div>
+      <div class="stat-card"><div class="stat-val">${lrg(quote.marketCap || profile.mktCap)}</div><div class="stat-label">Market Cap</div></div>
+      <div class="stat-card"><div class="stat-val">${lrg(keyMetrics.enterpriseValueTTM)}</div><div class="stat-label">EV</div></div>
+      <div class="stat-card"><div class="stat-val">${eyVal}</div><div class="stat-label">Earnings Yield</div></div>
+      <div class="stat-card"><div class="stat-val">${rocVal}</div><div class="stat-label">ROC</div></div>
+      <div class="stat-card"><div class="stat-val">${mf.mf_score ? Math.round(mf.mf_score) : "n/a"}</div><div class="stat-label">MF Score</div></div>
+    </div>
+
+    <div class="tk-sections">
+      <div class="tk-section">
+        <div class="tk-section-title">Valuation</div>
+        <table class="tk-table">
+          <tr><td class="tk-td-label">P/E (TTM)</td><td class="tk-td-val">${rat(ratios.peRatioTTM)}</td></tr>
+          <tr><td class="tk-td-label">P/B</td><td class="tk-td-val">${rat(ratios.priceToBookRatioTTM)}</td></tr>
+          <tr><td class="tk-td-label">EV / EBITDA</td><td class="tk-td-val">${x(keyMetrics.evToOperatingCashFlowTTM || ratios.enterpriseValueMultipleTTM)}</td></tr>
+          <tr><td class="tk-td-label">EV / Revenue</td><td class="tk-td-val">${x(keyMetrics.evToSalesTTM)}</td></tr>
+          <tr><td class="tk-td-label">P/FCF</td><td class="tk-td-val">${rat(ratios.priceToFreeCashFlowsRatioTTM)}</td></tr>
+          <tr><td class="tk-td-label">52-wk High</td><td class="tk-td-val">${px(quote.yearHigh)}</td></tr>
+          <tr><td class="tk-td-label">52-wk Low</td><td class="tk-td-val">${px(quote.yearLow)}</td></tr>
+        </table>
+      </div>
+      <div class="tk-section">
+        <div class="tk-section-title">Profitability</div>
+        <table class="tk-table">
+          <tr><td class="tk-td-label">Gross Margin</td><td class="tk-td-val">${pct(ratios.grossProfitMarginTTM)}</td></tr>
+          <tr><td class="tk-td-label">Operating Margin</td><td class="tk-td-val">${pct(ratios.operatingProfitMarginTTM)}</td></tr>
+          <tr><td class="tk-td-label">Net Margin</td><td class="tk-td-val">${pct(ratios.netProfitMarginTTM)}</td></tr>
+          <tr><td class="tk-td-label">ROE</td><td class="tk-td-val">${pct(ratios.returnOnEquityTTM)}</td></tr>
+          <tr><td class="tk-td-label">ROA</td><td class="tk-td-val">${pct(ratios.returnOnAssetsTTM)}</td></tr>
+          <tr><td class="tk-td-label">ROIC</td><td class="tk-td-val">${pct(keyMetrics.roicTTM)}</td></tr>
+          <tr><td class="tk-td-label">EBITDA</td><td class="tk-td-val">${lrg(income.ebitda || inc?.ebitda)}</td></tr>
+        </table>
+      </div>
+      <div class="tk-section">
+        <div class="tk-section-title">Financial Health</div>
+        <table class="tk-table">
+          <tr><td class="tk-td-label">Current Ratio</td><td class="tk-td-val">${rat(ratios.currentRatioTTM)}</td></tr>
+          <tr><td class="tk-td-label">Debt / Equity</td><td class="tk-td-val">${rat(ratios.debtEquityRatioTTM)}</td></tr>
+          <tr><td class="tk-td-label">Interest Coverage</td><td class="tk-td-val">${rat(ratios.interestCoverageTTM)}</td></tr>
+          <tr><td class="tk-td-label">Cash & Equiv.</td><td class="tk-td-val">${lrg(bal?.cashAndCashEquivalents)}</td></tr>
+          <tr><td class="tk-td-label">Total Debt</td><td class="tk-td-val">${lrg(bal?.totalDebt)}</td></tr>
+          <tr><td class="tk-td-label">FCF / Share</td><td class="tk-td-val">${px(keyMetrics.freeCashFlowPerShareTTM)}</td></tr>
+          <tr><td class="tk-td-label">Dividend Yield</td><td class="tk-td-val">${pct(ratios.dividendYieldTTM)}</td></tr>
+        </table>
+      </div>
+      <div class="tk-section">
+        <div class="tk-section-title">Growth</div>
+        <table class="tk-table">
+          <tr><td class="tk-td-label">Revenue (TTM)</td><td class="tk-td-val">${lrg(inc?.revenue)}</td></tr>
+          <tr><td class="tk-td-label">Revenue Growth</td><td class="tk-td-val">${pct(ratios.revenueGrowthTTM)}</td></tr>
+          <tr><td class="tk-td-label">EPS (TTM)</td><td class="tk-td-val">${rat(quote.eps)}</td></tr>
+          <tr><td class="tk-td-label">EPS Growth</td><td class="tk-td-val">${pct(keyMetrics.epsGrowthTTM || ratios.epsGrowthTTM)}</td></tr>
+          <tr><td class="tk-td-label">Net Income</td><td class="tk-td-val">${lrg(inc?.netIncome)}</td></tr>
+          <tr><td class="tk-td-label">Shares Out.</td><td class="tk-td-val">${profile.sharesOutstanding ? Math.round(profile.sharesOutstanding).toLocaleString() : "—"}</td></tr>
+          <tr><td class="tk-td-label">Beta</td><td class="tk-td-val">${rat(profile.beta)}</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="tk-source-note">${d.source === "live" ? "⚡ Live data · "+new Date().toLocaleString() : "🗄 From local vault · last updated "+(d.last_updated || "unknown")}</div>
+  `;
+}
+
+document.getElementById("modal-close").addEventListener("click", () => {
+  document.getElementById("ticker-modal").classList.add("hidden");
+});
+
+document.getElementById("ticker-modal").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) {
+    e.currentTarget.classList.add("hidden");
+  }
+});
 </script>
 
   <script>

@@ -46,19 +46,16 @@ Run:
 
 """
 from __future__ import annotations
-import os, time, argparse, math
+import os, time, argparse
 from typing import Dict, Any, List, Optional
 import requests
 import pandas as pd
-import numpy as np
-import json
 import datetime
 import random
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from collections import deque
-from datetime import timedelta
 import threading
 
 #---filter dataset for actual active stock 

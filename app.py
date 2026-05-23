@@ -160,6 +160,22 @@ def stock_detail(ticker):
         mf_row=mf_row,
         not_found=False
     )
+
+@app.route("/description/<ticker>")
+def description(ticker):
+    ticker = ticker.upper()
+    conn = sqlite3.connect(mf.DB_PATH)
+    row = conn.execute(
+        "SELECT json_blob FROM raw_json_vault WHERE ticker = ? AND endpoint = 'profile'",
+        (ticker,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"description": ""})
+    profile = json.loads(row[0])
+    desc = profile[0].get("description", "") if isinstance(profile, list) else profile.get("description", "")
+    return jsonify({"description": desc})
+
 @app.route("/ticker/<symbol>")
 def ticker_lookup(symbol):
     symbol = symbol.upper().strip()
