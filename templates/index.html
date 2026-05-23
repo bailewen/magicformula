@@ -224,20 +224,29 @@
     </div>
 
     <!-- Scatter plot + sector pie -->
-    <div class="chart-section desktop-only">
-      <div style="display: grid; grid-template-columns: 200px 1fr; gap: 1rem; align-items: center; min-width: 0; width: 100%;">
+<div class="chart-section desktop-only">
+  <div style="display: grid; grid-template-columns: 200px 1fr; gap: 1rem; align-items: center; min-width: 0; width: 100%;">
+    <h3 style="margin: 0; grid-column: 1;">Sectors</h3>
+    <h3 style="margin: 0; grid-column: 2;">📊 Quality vs. Value</h3>
 
-        <h3 style="margin: 0; grid-column: 1;">Sectors</h3>
-        <h3 style="margin: 0; grid-column: 2;">📊 Quality vs. Value</h3>
+    <div style="grid-column: 1;">
+      <div id="sector-pie" style="width: 200px; height: 200px;"></div>
+    </div>
 
-        <div id="sector-pie" style="width: 200px; height: 200px; grid-column: 1;"></div>
+    <div style="grid-column: 2; position: relative; min-width: 0;">
+      <div id="scatter-plot" style="height: 300px; width: 100%;"></div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+        <button id="show-all-btn">Show All Sectors</button>
 
-        <div style="grid-column: 2; position: relative; min-width: 0;">
-          <div id="scatter-plot" style="height: 300px; width: 100%;"></div>
+      </div>
+    </div>
 
-          <button id="show-all-btn" style="position: absolute; top: 100%; left: 0; right: 0; margin-top: 0.5rem;">
-            Show All
-          </button>
+  </div>
+</div>
+
+<div style="grid-column: 2; position: relative; min-width: 0;">
+  <div id="scatter-plot" style="height: 300px; width: 100%;"></div>
+
         </div>
 
       </div> <!-- end chart grid -->

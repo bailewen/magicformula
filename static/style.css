@@ -632,3 +632,17 @@ tr.desc-row td {
   #advanced-drawer { display: block; }
   #advanced-drawer.hidden { display: none !important; }
 }
+
+#show-all-btn {
+  padding: 4px 12px;
+  font-family: var(--font);
+  font-size: 12px;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+#show-all-btn:hover {
+  background: var(--bg-3);
+}
