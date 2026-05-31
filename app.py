@@ -131,7 +131,7 @@ def download_csv(scan_id):
 @app.route("/stock/<ticker>")
 def stock_detail(ticker):
     ticker = ticker.upper()
-    conn = sqlite3.connect(mf.DB_PATH)
+    conn = mf.get_conn()
 
     # get all blobs for this ticker
     rows = conn.execute(
@@ -164,7 +164,7 @@ def stock_detail(ticker):
 @app.route("/description/<ticker>")
 def description(ticker):
     ticker = ticker.upper()
-    conn = sqlite3.connect(mf.DB_PATH)
+    conn = mf.get_conn()
     row = conn.execute(
         "SELECT json_blob FROM raw_json_vault WHERE ticker = ? AND endpoint = 'profile'",
         (ticker,)
@@ -179,8 +179,7 @@ def description(ticker):
 @app.route("/ticker/<symbol>")
 def ticker_lookup(symbol):
     symbol = symbol.upper().strip()
-    conn = sqlite3.connect(mf.DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = mf.get_conn()
     ENDPOINTS = ["profile", "quote", "income-statement",
                  "balance-sheet-statement", "ratios-ttm", "key-metrics-ttm"]
     rows = conn.execute(
@@ -269,7 +268,7 @@ def ticker_refresh(symbol):
     symbol = symbol.upper().strip()
     ENDPOINTS = ["profile", "quote", "income-statement",
                  "balance-sheet-statement", "ratios-ttm", "key-metrics-ttm"]
-    conn = sqlite3.connect(mf.DB_PATH)
+    conn = mf.get_conn()
     ok = 0
     for ep in ENDPOINTS:
         try:

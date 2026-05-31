@@ -5,7 +5,7 @@ import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 from magicformula import list_symbols
-from magicformula import DB_PATH, fmp_get, _init_db, compute_mf_from_vault, magic_formula_rank
+from magicformula import DB_PATH, fmp_get, _init_db, compute_mf_from_vault, magic_formula_rank, get_conn
 # -------------------- Deep Scan --------------------
 
 
@@ -48,7 +48,7 @@ def run_deep_scan():
     print(f"Deep scan: {len(tickers)} tickers x {len(DEEP_SCAN_ENDPOINTS)} endpoints = {total} API calls")
 
     ok = skip = 0
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     batch = []
 
     with ThreadPoolExecutor(max_workers=5) as executor:
@@ -93,7 +93,7 @@ def run_mf_universe():
     After deep scan, compute EY/ROC/MF_score for all tickers in raw_json_vault
     and write to mf_universe table.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
 
     # Create table if needed
     conn.execute("""
