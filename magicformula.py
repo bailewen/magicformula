@@ -408,9 +408,18 @@ def compute_mf_from_vault(symbol: str, vault: dict, annual: bool = True) -> Opti
 
 DB_PATH = Path(__file__).parent / "cache.db"
 
+def get_conn() -> sqlite3.Connection:
+    """Return a WAL-enabled connection with busy timeout and Row factory."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=5000")
+    conn.row_factory = sqlite3.Row
+    return conn
+
 def _init_db():
     """Initialize the SQLite database with the company cache table."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     conn.execute("""
         CREATE TABLE IF NOT EXISTS company_cache (
             ticker TEXT NOT NULL,
@@ -456,7 +465,7 @@ def db_upsert(record: Dict[str, Any], period: str) -> None:
     if not record or record.get("type") != "success":
         return
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     conn.execute("""
         INSERT INTO company_cache (
             ticker, period, name, exchange, country, sector, industry,
@@ -508,8 +517,7 @@ def db_upsert(record: Dict[str, Any], period: str) -> None:
 
 def db_fetch(ticker: str, period: str, max_age_days: int = 7) -> Optional[Dict[str, Any]]:
     """Fetch a cached company record if it exists and is not expired."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = get_conn()
     cursor = conn.execute("""
         SELECT * FROM company_cache
         WHERE ticker = ? AND period = ?
