@@ -53,6 +53,7 @@ import pandas as pd
 import datetime
 import random
 import sqlite3
+import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from collections import deque
@@ -179,7 +180,12 @@ def fmp_income(ticker: str, annual: bool = False, api_key: str = None) -> List[D
     return fmp_get(f"/income-statement/{ticker}", {"period": "quarter", "limit": 4}, api_key=api_key) or []
 
 def fmp_balance(ticker: str, api_key: str = None) -> List[Dict[str, Any]]:
-    return fmp_get(f"/balance-sheet-statement/{ticker}", {"period": "quarter", "limit": 1}, api_key=api_key) or []
+    return fmp_get(f"/balance-sheet-statement/{ticker}", {"period": "quarter", "limit": 2}, api_key=api_key) or []
+
+def fmp_cashflow(ticker: str, annual: bool = False, api_key: str = None) -> List[Dict[str, Any]]:
+    limit = 2 if annual else 8
+    period = "annual" if annual else "quarter"
+    return fmp_get(f"/cash-flow-statement/{ticker}", {"period": period, "limit": limit}, api_key=api_key) or []
 
 def check_financial_health(symbol: str,
     check_debt_revenue: bool = False,
@@ -264,6 +270,11 @@ def _first_available(items: List[Dict[str, Any]], fields: List[str]):
                 return None
     return None
 
+def _sum_ttm(items: List[Dict[str, Any]], field: str, start_idx: int = 0) -> float:
+    try:
+        return sum(float(q.get(field) or 0) for q in items[start_idx:start_idx+4])
+    except Exception:
+        return 0.0
 
 # -------------------- Field helpers --------------------
 def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_goodwill: bool = False,
@@ -354,8 +365,86 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_
         "Intangibles": intangibles,
     }
 
+def _compute_z_score(prof: dict, inc: list, bal: list) -> Optional[float]:
+    """Altman Z-score (public company version)."""
+    try:
+        b = bal[0] if bal else {}
+        ta   = b.get("totalAssets") or 0
+        tl   = b.get("totalLiabilities") or 0
+        ca   = b.get("totalCurrentAssets") or 0
+        cl   = b.get("totalCurrentLiabilities") or 0
+        re   = b.get("retainedEarnings") or 0
+        mcap = float(prof.get("mktCap") or prof.get("marketCap") or 0)
+        ebit = _latest(inc, "operatingIncome") or 0
+        rev  = _latest(inc, "revenue") or 0
+
+        if ta <= 0 or tl <= 0:
+            return None
+
+        x1 = (ca - cl) / ta
+        x2 = re / ta
+        x3 = ebit / ta
+        x4 = mcap / tl
+        x5 = rev / ta
+        return round(1.2*x1 + 1.4*x2 + 3.3*x3 + 0.6*x4 + 1.0*x5, 3)
+    except Exception:
+        return None
+
+
+def _compute_f_score(inc: list, bal: list, cf: list) -> Optional[int]:
+    """Piotroski F-score (0–9). Requires 2 periods of income+balance, 1 of cashflow."""
+    try:
+        if len(bal) < 2 or len(inc) < 2 or not cf:
+            return None
+
+        b0, b1 = bal[0], bal[1]   # current, prior
+        i0, i1 = inc[0], inc[1]
+        c0 = cf[0]
+
+        ta0 = b0.get("totalAssets") or 0
+        ta1 = b1.get("totalAssets") or 1
+        if ta0 <= 0:
+            return None
+
+        # Profitability
+        roa0 = (i0.get("netIncome") or 0) / ta0
+        roa1 = (i1.get("netIncome") or 0) / ta1
+        ocf  = c0.get("operatingCashFlow") or 0
+        f1 = int(roa0 > 0)
+        f2 = int(ocf > 0)
+        f3 = int(roa0 > roa1)
+        f4 = int((ocf / ta0) > roa0)
+
+        # Leverage / liquidity / dilution
+        ltd0 = (b0.get("longTermDebt") or 0) / ta0
+        ltd1 = (b1.get("longTermDebt") or 0) / ta1
+        cr0  = (b0.get("totalCurrentAssets") or 0) / max(b0.get("totalCurrentLiabilities") or 1, 1)
+        cr1  = (b1.get("totalCurrentAssets") or 0) / max(b1.get("totalCurrentLiabilities") or 1, 1)
+        sh0  = b0.get("commonStock") or b0.get("sharesOutstanding") or 0
+        sh1  = b1.get("commonStock") or b1.get("sharesOutstanding") or 0
+        f5 = int(ltd0 < ltd1)
+        f6 = int(cr0 > cr1)
+        f7 = int(sh0 <= sh1)
+
+        # Operating efficiency
+        rev0  = i0.get("revenue") or 0
+        rev1  = i1.get("revenue") or 1
+        cogs0 = i0.get("costOfRevenue") or 0
+        cogs1 = i1.get("costOfRevenue") or 0
+        gm0 = (rev0 - cogs0) / rev0 if rev0 else 0
+        gm1 = (rev1 - cogs1) / rev1 if rev1 else 0
+        at0 = rev0 / ta0 if ta0 else 0
+        at1 = rev1 / ta1 if ta1 else 0
+        f8 = int(gm0 > gm1)
+        f9 = int(at0 > at1)
+
+        return f1+f2+f3+f4+f5+f6+f7+f8+f9
+    except Exception:
+        return None
+
 def pull_company(symbol: str, annual: bool = False, include_goodwill: bool = False,
-                     include_intangibles: bool = False, api_key: str = None) -> Optional[Dict[str, Any]]:
+                 include_intangibles: bool = False, compute_z: bool = False,
+                 compute_f: bool = False, api_key: str = None) -> Optional[Dict[str, Any]]:
     try:
         prof = fmp_profile(symbol, api_key=api_key)
         if not prof:
@@ -366,11 +455,35 @@ def pull_company(symbol: str, annual: bool = False, include_goodwill: bool = Fal
 
         result = _compute_mf_metrics(prof, inc, bal, annual, include_goodwill, include_intangibles)
 
+        if result and "reason" not in result:
+            if compute_z:
+                result["ZScore"] = _compute_z_score(prof, inc, bal)
+                if result["ZScore"] is not None and result["ZScore"] < 2.99:
+                    return {"type": "skip", "ticker": symbol, "name": prof.get("companyName", symbol),
+                            "reason": f"Z-score {result['ZScore']} below 2.99"}
+            if compute_f:
+                cf = None
+                conn = get_conn()
+                row = conn.execute(
+                    "SELECT json_blob FROM raw_json_vault WHERE ticker = ? AND endpoint = 'cash-flow-statement'",
+                    (symbol,)
+                ).fetchone()
+                conn.close()
+                if row:
+                    cf = json.loads(row[0])
+                else:
+                    cf = fmp_cashflow(symbol, annual, api_key=api_key)
+                result["FScore"] = _compute_f_score(inc, bal, cf)
+                if result["FScore"] is None or result["FScore"] < 3:
+                    return {"type": "skip", "ticker": symbol, "name": prof.get("companyName", symbol),
+                            "reason": f"F-score {result['FScore']} below 3"}
+
         if result is None:
             return None
         if "reason" in result:
             print(f"DEBUG: Skipping {symbol} -> {result['reason']}")
-            return {"type": "skip", "ticker": symbol, "name": prof.get("companyName", symbol), "reason": result["reason"]}
+            return {"type": "skip", "ticker": symbol, "name": prof.get("companyName", symbol),
+                    "reason": result["reason"]}
 
         return {"type": "success", "ticker": symbol, **result}
 
@@ -454,6 +567,16 @@ def _init_db():
                 PRIMARY KEY (ticker, endpoint)
             )
         """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS scan_control (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    """)
+    conn.execute("""
+        INSERT OR IGNORE INTO scan_control (key, value)
+        VALUES ('deepscan_paused', '0')
+    """)
     conn.commit()
     conn.close()
 
@@ -515,6 +638,8 @@ def db_upsert(record: Dict[str, Any], period: str) -> None:
     conn.commit()
     conn.close()
 
+
+
 def db_fetch(ticker: str, period: str, max_age_days: int = 7) -> Optional[Dict[str, Any]]:
     """Fetch a cached company record if it exists and is not expired."""
     conn = get_conn()
@@ -548,26 +673,40 @@ def db_fetch(ticker: str, period: str, max_age_days: int = 7) -> Optional[Dict[s
         }
     return None
 
-def fetch_company_with_cache(symbol: str, annual: bool = False, include_goodwill: bool = False, include_intangibles: bool = False, api_key: str = None) -> Optional[Dict[str, Any]]:
-    """Fetch company data, using database cache when available."""
+
+def _set_deepscan_pause(paused: bool) -> None:
+    conn = get_conn()
+    conn.execute(
+        "UPDATE scan_control SET value=? WHERE key='deepscan_paused'",
+        ('1' if paused else '0',)
+    )
+    conn.commit()
+    conn.close()
+
+
+def fetch_company_with_cache(symbol: str, annual: bool = False, include_goodwill: bool = False,
+                             include_intangibles: bool = False, compute_z: bool = False,
+                             compute_f: bool = False, api_key: str = None) -> Optional[Dict[str, Any]]:
+
     period = "annual" if annual else "ttm"
     if include_goodwill:
         period += "_g"
     if include_intangibles:
         period += "_i"
+    if compute_z:
+        period += "_z"
+    if compute_f:
+        period += "_f"
 
     # Try to fetch from cache first
     cached = db_fetch(symbol, period)
     if cached:
         return cached
-
-    # Not in cache or expired, fetch fresh data
-    rec = pull_company(symbol, annual, include_goodwill, include_intangibles, api_key=api_key)
-
+    rec = pull_company(symbol, annual, include_goodwill, include_intangibles,
+                       compute_z=compute_z, compute_f=compute_f, api_key=api_key)
     # Cache successful records
     if rec and rec.get("type") == "success":
         db_upsert(rec, period)
-
     return rec
 
 # -------------------- Ranking --------------------
@@ -608,6 +747,8 @@ def main():
                     help="Include goodwill in capital calculation")
     ap.add_argument("--intangibles", action="store_true", dest="include_intangibles",
                     help="Include intangibles in capital calculation")
+    ap.add_argument("--zscore", action="store_true", help="Compute and output Altman Z-score")
+    ap.add_argument("--fscore", action="store_true", help="Compute and output Piotroski F-score")
 
     args = ap.parse_args()
 
@@ -641,30 +782,32 @@ def main():
 
     if args.limit and len(symbols) > args.limit:
         symbols = symbols[:args.limit]
-    
+
     # Pull company data
- 
-    # Pull company data
- 
+
     records = []
     skipped = []
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(fetch_company_with_cache, sym, args.annual, args.include_goodwill,
-                                   args.include_intangibles): sym for sym in symbols}
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Pulling fundamentals"):
-            try:
-                rec = future.result(timeout=5)
-                if rec:
-                    if rec.get("type") == "success" and rec.get("marketCap", 0) >= args.min_mcap:
-                        records.append(rec)
-                    elif rec.get("type") == "skip":
-                        skipped.append({
-                            "ticker": rec.get("ticker"),
-                            "name": rec.get("name", ""),
-                            "reason": rec.get("reason", "Unknown")
-                        })
-            except Exception:
-                pass
+    _set_deepscan_pause(True)
+    try:
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(fetch_company_with_cache, sym, args.annual, args.include_goodwill,
+                                       args.include_intangibles, args.zscore, args.fscore): sym for sym in symbols}
+            for future in tqdm(as_completed(futures), total=len(futures), desc="Pulling fundamentals"):
+                try:
+                    rec = future.result(timeout=5)
+                    if rec:
+                        if rec.get("type") == "success" and rec.get("marketCap", 0) >= args.min_mcap:
+                            records.append(rec)
+                        elif rec.get("type") == "skip":
+                            skipped.append({
+                                "ticker": rec.get("ticker"),
+                                "name": rec.get("name", ""),
+                                "reason": rec.get("reason", "Unknown")
+                            })
+                except Exception:
+                    pass
+    finally:
+        _set_deepscan_pause(False)
 
     if not records:
         print("No qualifying records. Try increasing --limit or lowering --min-mcap.")
@@ -693,7 +836,8 @@ def main():
     cols = [
         "ticker","name","exchange","country","sector","industry",
         "marketCap","EV","EBIT","NWC","PPE_Net","Capital","Cash","TotalDebt",
-        "EY","ROC","EY_rank","ROC_rank","MF_score","Goodwill","Intangibles"
+        "EY","ROC","EY_rank","ROC_rank","MF_score","Goodwill","Intangibles",
+        "ZScore", "FScore"
     ]
     cols = [c for c in cols if c in ranked.columns]
 
@@ -706,18 +850,6 @@ def main():
         skipped_df = pd.DataFrame(skipped)
         skipped_df.to_csv(skipped_file, index=False)
         print(f"\nSkipped {len(skipped)} stocks (saved to: {skipped_file})")
-
-#notification when script is done 
-    try:
-        import subprocess
-        subprocess.run([
-            "notify-send",
-            "Magic Formula Scan Complete",
-            f"Successfully processed {args.limit} stocks.\nTop {args.top} results saved to {args.out}.\n{len(skipped)} stocks skipped.",            
-            "--icon=utilities-terminal"
-        ])
-    except Exception as e:
-        pass  # Silently fail if notify-send is missing
 
     print("Top results saved to:", args.out)
     print(out.to_string(index=False, max_colwidth=28))

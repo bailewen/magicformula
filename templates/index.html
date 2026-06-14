@@ -135,9 +135,11 @@
       <!-- Health checks -->
       <section class="sidebar-section">
         <div class="section-label">🩺 Health Checks (Optional)</div>
+        <label class="toggle-row" style="display:none"><input type="checkbox" id="compute-z" checked> Show Altman Z Score</label>
+        <label class="toggle-row" style="display:none"><input type="checkbox" id="compute-f" checked> Show Piotroski F Score</label>
         <label class="toggle-row"><input type="checkbox" id="check-debt-revenue"> D/E decreasing + Revenue increasing</label>
         <label class="toggle-row"><input type="checkbox" id="check-cashflow"> Cash flow exceeds net income</label>
-      </section>
+	</section>
 
       </div><!-- end advanced-drawer -->
       </div><!-- end sidebar-inner -->
@@ -367,6 +369,9 @@
           <tr><td class="tk-td-label">Total Debt</td><td id="tk-debt" class="tk-td-val">—</td></tr>
           <tr><td class="tk-td-label">FCF / Share</td><td id="tk-fcf-share" class="tk-td-val">—</td></tr>
           <tr><td class="tk-td-label">Dividend Yield</td><td id="tk-div-yield" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">F-Score <span class="infotip" title="A measure of momentum. Higher is better. Below 3 suggests deteriorating fundamentals.">ⓘ</span></td><td id="tk-fscore" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">Z-Score <span class="infotip" title="Risk of bankrupcy. Above 2.99: safe. 1.81–2.99: grey zone. Below 1.81: distressed.">ⓘ</span></td><td id="tk-zscore" class="tk-td-val">—</td></tr>
+        </table>
         </table>
       </div>
 
@@ -380,6 +385,8 @@
           <tr><td class="tk-td-label">Net Income</td><td id="tk-net-income" class="tk-td-val">—</td></tr>
           <tr><td class="tk-td-label">Shares Out.</td><td id="tk-shares" class="tk-td-val">—</td></tr>
           <tr><td class="tk-td-label">Beta</td><td id="tk-beta" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">Operating Cash Flow</td><td id="tk-ocf" class="tk-td-val">—</td></tr>
+          <tr><td class="tk-td-label">Free Cash Flow</td><td id="tk-fcf" class="tk-td-val">—</td></tr>
         </table>
       </div>
 
@@ -507,6 +514,8 @@ function collectParams() {
       include_intangibles: document.getElementById("include-intangibles").checked,
       check_debt_revenue: document.getElementById("check-debt-revenue").checked,
       check_cashflow: document.getElementById("check-cashflow").checked,
+      compute_z: document.getElementById("compute-z").checked,
+      compute_f: document.getElementById("compute-f").checked,
       selected_countries: countries,
   };
 }
@@ -631,6 +640,8 @@ function fmt(val, col) {
   if (col === "MF_score" || col === "EY_rank" || col === "ROC_rank") {
     return Math.round(val);
   }
+  if (col === "ZScore") return parseFloat(val).toFixed(2);
+  if (col === "FScore") return `${val}/9`;
   return val;
 }
 
@@ -646,6 +657,8 @@ const COL_LABELS = {
   EBIT:     "EBIT",
   EY:       "EY",
   ROC:      "ROC",
+  ZScore:   "Z-Score",
+  FScore:   "F-Score",
   EY_rank:  "EY Rank",
   ROC_rank: "ROC Rank",
   MF_score: "MF Score",
@@ -749,7 +762,8 @@ function renderResults(results, count, total_analyzed, summary) {
   }
 
 function renderTable(data) {
-  const cols = ["ticker", "name", "EY", "ROC", "exchange", "industry", "country", "MF_score"];
+  const cols = ["ticker", "name", "EY", "ROC", "exchange", "industry", "country", "ZScore", "FScore", "MF_score"];
+  
   const thead = document.getElementById("results-thead");
   const tbody = document.getElementById("results-tbody");
 
@@ -1097,6 +1111,9 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
     const income     = d.income      || {};
     const balance    = d.balance     || {};
     const mf         = d.mf          || {};
+    const cf = d.cf ? (Array.isArray(d.cf) ? d.cf[0] : d.cf) : {};
+    set("tk-ocf", tkFmt(cf?.operatingCashFlow, "large"));
+    set("tk-fcf", tkFmt(cf?.freeCashFlow, "large"));
 
     const logoEl     = document.getElementById("tk-logo");
     const fallbackEl = document.getElementById("tk-logo-fallback");
@@ -1198,6 +1215,13 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
     set("tk-debt",      tkFmt(bal?.totalDebt, "large"));
     set("tk-fcf-share", tkFmt(keyMetrics.freeCashFlowPerShareTTM, "price"));
     set("tk-div-yield", tkFmt(ratios.dividendYieldTTM, "pct"));
+
+    const fScoreEl = document.getElementById("tk-fscore");
+    const zScoreEl = document.getElementById("tk-zscore");
+    fScoreEl.textContent = d.f_score != null ? d.f_score + " / 9" : "n/a";
+    zScoreEl.textContent = d.z_score != null ? d.z_score : "n/a";
+    tkColor(fScoreEl, d.f_score);
+    tkColor(zScoreEl, d.z_score != null ? (d.z_score > 2.99 ? 1 : d.z_score < 1.81 ? -1 : 0) : null);
 
     const rgEl = document.getElementById("tk-rev-growth");
     const egEl = document.getElementById("tk-eps-growth");

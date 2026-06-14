@@ -573,6 +573,24 @@ tr.desc-row td {
   color: var(--text-muted);
   cursor: help;
   margin-left: 3px;
+  position: relative;
+}
+.infotip:hover::after {
+  content: attr(title);
+  position: fixed;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 1;
 }
 @media (max-width: 768px) {
   .desktop-only { display: none; }

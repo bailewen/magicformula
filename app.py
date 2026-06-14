@@ -180,8 +180,8 @@ def description(ticker):
 def ticker_lookup(symbol):
     symbol = symbol.upper().strip()
     conn = mf.get_conn()
-    ENDPOINTS = ["profile", "quote", "income-statement",
-                 "balance-sheet-statement", "ratios-ttm", "key-metrics-ttm"]
+    ENDPOINTS = ["profile", "quote", "income-statement", "balance-sheet-statement",
+                 "ratios-ttm", "key-metrics-ttm", "cash-flow-statement"]
     rows = conn.execute(
         "SELECT endpoint, json_blob, last_updated FROM raw_json_vault WHERE ticker = ?",
         (symbol,)
@@ -249,15 +249,40 @@ def ticker_lookup(symbol):
     except Exception as e:
         print(f"[ticker_lookup] MF rank error: {e}")
 
+    f_score = None
+    z_score = None
+    try:
+        bal_list = vault.get("balance-sheet-statement", ({}, None))[0]
+        inc_list = vault.get("income-statement", ({}, None))[0]
+        cf_list = vault.get("cash-flow-statement", ({}, None))[0]
+        print(f"DEBUG SBC bal_list type={type(bal_list)} len={len(bal_list) if isinstance(bal_list, list) else 'not list'}")
+        print(f"DEBUG SBC inc_list type={type(inc_list)} len={len(inc_list) if isinstance(inc_list, list) else 'not list'}")
+        print(f"DEBUG SBC cf_list type={type(cf_list)} len={len(cf_list) if isinstance(cf_list, list) else 'not list'}")
+        if not isinstance(bal_list, list): bal_list = [bal_list]
+        if not isinstance(inc_list, list): inc_list = [inc_list]
+        if not isinstance(cf_list, list): cf_list = [cf_list]
+        f_score = mf._compute_f_score(inc_list, bal_list, cf_list)
+        print(f"DEBUG after f_score={f_score}")
+        z_score = mf._compute_z_score(profile if isinstance(profile, dict) else {}, inc_list, bal_list)
+        print(f"DEBUG after z_score={z_score}")
+        f_score = mf._compute_f_score(inc_list, bal_list, cf_list)
+        z_score = mf._compute_z_score(profile if isinstance(profile, dict) else {}, inc_list, bal_list)
+    except Exception as e:
+        print(f"[ticker_lookup] F/Z score error: {e}")
+
     conn.close()
+
     return jsonify({
         "profile":      profile,
         "quote":        quote_data,
         "income":       income,
         "balance":      balance,
+        "cf":           vault.get("cash-flow-statement", ({}, None))[0] if vault.get("cash-flow-statement") else {},
         "ratios":       ratios,
         "key_metrics":  key_metrics,
         "mf":           mf_data,
+        "f_score":      f_score,
+        "z_score":      z_score,
         "source":       source,
         "last_updated": last_updated,
     })
@@ -267,12 +292,18 @@ def ticker_lookup(symbol):
 def ticker_refresh(symbol):
     symbol = symbol.upper().strip()
     ENDPOINTS = ["profile", "quote", "income-statement",
-                 "balance-sheet-statement", "ratios-ttm", "key-metrics-ttm"]
+                 "balance-sheet-statement", "ratios-ttm", "key-metrics-ttm", "cash-flow-statement"]
+    ENDPOINT_PARAMS = {
+        "income-statement":        {"period": "quarter", "limit": 4},
+        "balance-sheet-statement": {"period": "quarter", "limit": 2},
+        "cash-flow-statement":     {"period": "quarter", "limit": 2},
+    }
     conn = mf.get_conn()
     ok = 0
     for ep in ENDPOINTS:
         try:
-            data = mf.fmp_get(f"/{ep}/{symbol}")
+            params = ENDPOINT_PARAMS.get(ep, {})
+            data = mf.fmp_get(f"/{ep}/{symbol}", params)
             if data:
                 conn.execute("""
                     INSERT INTO raw_json_vault (ticker, endpoint, json_blob)
@@ -347,6 +378,8 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
         check_cashflow = params.get("check_cashflow", False)
         include_goodwill = params.get("include_goodwill", False)
         include_intangibles = params.get("include_intangibles", False)
+        compute_z = params.get("compute_z", False)
+        compute_f = params.get("compute_f", False)
 
         # Country filter
         selected_countries = params.get("selected_countries", ["US"])
@@ -400,7 +433,7 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = {
                 executor.submit(mf.fetch_company_with_cache, sym, use_annual, include_goodwill,
-                                include_intangibles, api_key): sym
+                                include_intangibles, compute_z, compute_f, api_key): sym
                 for sym in all_symbols
             }
             for future in as_completed(futures):
@@ -470,7 +503,7 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
         # ── Step 5: Build output ───────────────────────────────────────────
         display_cols = [
             "ticker", "name", "exchange", "country", "sector", "industry",
-            "marketCap", "EV", "EBIT", "EY", "ROC", "EY_rank", "ROC_rank", "MF_score"
+            "marketCap", "EV", "EBIT", "EY", "ROC", "EY_rank", "ROC_rank", "MF_score", "ZScore", "FScore"
         ]
         display_cols = [c for c in display_cols if c in ranked.columns]
         final_df = ranked[display_cols].head(top_n)

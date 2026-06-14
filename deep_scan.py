@@ -1,6 +1,7 @@
 
 import json
 import sqlite3
+import time
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
@@ -18,10 +19,26 @@ DEEP_SCAN_ENDPOINTS = [
     "ratios-ttm",
     "key-metrics-ttm",
 ]
+DEEP_SCAN_PARAMS = {
+    "income-statement":        {"period": "quarter", "limit": 4},
+    "balance-sheet-statement": {"period": "quarter", "limit": 2},
+    "cash-flow-statement":     {"period": "quarter", "limit": 2},
+}
 
-def fetch_and_store(ticker: str, endpoint: str) -> tuple | None :
+def _is_paused() -> bool:
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT value FROM scan_control WHERE key='deepscan_paused'"
+    ).fetchone()
+    conn.close()
+    return row and row[0] == '1'
+
+def fetch_and_store(ticker: str, endpoint: str) -> tuple | None:
+    while _is_paused():
+        time.sleep(5)
     try:
-        data = fmp_get(f"/{endpoint}/{ticker}")
+        params = DEEP_SCAN_PARAMS.get(endpoint, {})
+        data = fmp_get(f"/{endpoint}/{ticker}", params)
         if not data:
             return None
         return (ticker, endpoint, json.dumps(data))
@@ -30,6 +47,12 @@ def fetch_and_store(ticker: str, endpoint: str) -> tuple | None :
         return None
 
 def run_deep_scan():
+    # Clear any stale pause flag from a previous crashed screener run
+    conn = get_conn()
+    conn.execute("UPDATE scan_control SET value='0' WHERE key='deepscan_paused'")
+    conn.commit()
+    conn.close()
+
     exchanges = ["NASDAQ", "NYSE", "AMEX"]
     all_tickers = []
     for ex in exchanges:
