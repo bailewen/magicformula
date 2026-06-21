@@ -290,111 +290,7 @@
   </div>
 
   <div id="ticker-result" class="hidden">
-
-    <!-- Company header -->
-    <div class="tk-header">
-      <div class="tk-logo-wrap">
-        <img id="tk-logo" src="" alt="" class="tk-logo hidden">
-        <div id="tk-logo-fallback" class="tk-logo-fallback"></div>
-      </div>
-      <div class="tk-header-text">
-        <div class="tk-name-row">
-          <h2 id="tk-name"></h2>
-          <span id="tk-ticker-badge" class="tk-ticker-badge"></span>
-          <span id="tk-exchange-badge" class="tk-exchange-badge"></span>
-          <span id="tk-last-updated" class="tk-last-updated"></span>
-          <button id="tk-refresh-btn" class="tk-refresh-btn">↻ Update</button>
-        </div>
-        <div class="tk-meta-row">
-          <span id="tk-sector"></span>
-          <span class="tk-dot">·</span>
-          <span id="tk-industry"></span>
-          <span class="tk-dot">·</span>
-          <span id="tk-country"></span>
-        </div>
-        <div id="tk-description" class="tk-description"></div>
-      </div>
-      <div class="tk-rank-block">
-        <div class="tk-rank-label">MF Rank <span class="infotip" title="Ranked against the entire market universe (~3,700 stocks)">ⓘ</span></div>
-        <div id="tk-rank-value" class="tk-rank-value">—</div>
-        <div id="tk-rank-sub" class="tk-rank-sub"></div>
-      </div>
-    </div>
-
-    <!-- Stat cards row -->
-    <div class="tk-cards">
-      <div class="stat-card"><div class="stat-val" id="tk-price">—</div><div class="stat-label">Price</div></div>
-      <div class="stat-card"><div class="stat-val" id="tk-mcap">—</div><div class="stat-label">Market Cap</div></div>
-      <div class="stat-card"><div class="stat-val" id="tk-ev">—</div><div class="stat-label">EV</div></div>
-      <div class="stat-card"><div class="stat-val" id="tk-ey">—</div><div class="stat-label">Earnings Yield</div></div>
-      <div class="stat-card"><div class="stat-val" id="tk-roc">—</div><div class="stat-label">ROC</div></div>
-      <div class="stat-card"><div class="stat-val" id="tk-mfscore">—</div><div class="stat-label">MF Score</div></div>
-    </div>
-
-    <!-- Detail sections -->
-    <div class="tk-sections">
-
-      <div class="tk-section">
-        <div class="tk-section-title">Valuation</div>
-        <table class="tk-table">
-          <tr><td class="tk-td-label">P/E (TTM)</td><td id="tk-pe" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">P/B</td><td id="tk-pb" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">EV / EBITDA</td><td id="tk-ev-ebitda" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">EV / Revenue</td><td id="tk-ev-rev" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">P/FCF</td><td id="tk-pfcf" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">52-wk High</td><td id="tk-52h" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">52-wk Low</td><td id="tk-52l" class="tk-td-val">—</td></tr>
-        </table>
-      </div>
-
-      <div class="tk-section">
-        <div class="tk-section-title">Profitability</div>
-        <table class="tk-table">
-          <tr><td class="tk-td-label">Gross Margin</td><td id="tk-gross-margin" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">Operating Margin</td><td id="tk-op-margin" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">Net Margin</td><td id="tk-net-margin" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">ROE</td><td id="tk-roe" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">ROA</td><td id="tk-roa" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">ROIC</td><td id="tk-roic" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">EBITDA</td><td id="tk-ebitda" class="tk-td-val">—</td></tr>
-        </table>
-      </div>
-
-      <div class="tk-section">
-        <div class="tk-section-title">Financial Health</div>
-        <table class="tk-table">
-          <tr><td class="tk-td-label">Current Ratio</td><td id="tk-current-ratio" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">Debt / Equity</td><td id="tk-de" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">Interest Coverage</td><td id="tk-int-cov" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">Cash & Equiv.</td><td id="tk-cash" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">Total Debt</td><td id="tk-debt" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">FCF / Share</td><td id="tk-fcf-share" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">Dividend Yield</td><td id="tk-div-yield" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">F-Score <span class="infotip" title="A measure of momentum. Higher is better. Below 3 suggests deteriorating fundamentals.">ⓘ</span></td><td id="tk-fscore" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">Z-Score <span class="infotip" title="Risk of bankrupcy. Above 2.99: safe. 1.81–2.99: grey zone. Below 1.81: distressed.">ⓘ</span></td><td id="tk-zscore" class="tk-td-val">—</td></tr>
-        </table>
-        </table>
-      </div>
-
-      <div class="tk-section">
-        <div class="tk-section-title">Growth</div>
-        <table class="tk-table">
-          <tr><td class="tk-td-label">Revenue (TTM)</td><td id="tk-revenue" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">Revenue Growth</td><td id="tk-rev-growth" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">EPS (TTM)</td><td id="tk-eps" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">EPS Growth</td><td id="tk-eps-growth" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">Net Income</td><td id="tk-net-income" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">Shares Out.</td><td id="tk-shares" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">Beta</td><td id="tk-beta" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">Operating Cash Flow</td><td id="tk-ocf" class="tk-td-val">—</td></tr>
-          <tr><td class="tk-td-label">Free Cash Flow</td><td id="tk-fcf" class="tk-td-val">—</td></tr>
-        </table>
-      </div>
-
-    </div><!-- end tk-sections -->
-
-    <div id="tk-source-note" class="tk-source-note"></div>
-
+    <div id="ticker-result-content"></div>
   </div><!-- end ticker-result -->
 </div><!-- end tab-ticker -->
 
@@ -918,117 +814,8 @@ async function openTickerModal(ticker) {
     return;
   }
 
-  const profile    = d.profile     || {};
-  const quote      = d.quote       || {};
-  const ratios     = d.ratios      || {};
-  const keyMetrics = d.key_metrics || {};
-  const income     = d.income      || {};
-  const balance    = d.balance     || {};
-  const mf         = d.mf          || {};
-  const bal        = Array.isArray(balance) ? balance[0] : balance;
-  const inc        = Array.isArray(income)  ? income[0]  : income;
-
-  const pct  = v => (v == null || isNaN(v)) ? "—" : (parseFloat(v)*100).toFixed(2)+"%";
-  const lrg  = v => (v == null || isNaN(v)) ? "—" : Math.abs(v)>=1e9 ? "$"+(v/1e9).toFixed(2)+"B" : "$"+(v/1e6).toFixed(1)+"M";
-  const rat  = v => (v == null || isNaN(v)) ? "—" : parseFloat(v).toFixed(2);
-  const px   = v => (v == null || isNaN(v)) ? "—" : "$"+parseFloat(v).toFixed(2);
-  const x    = v => (v == null || isNaN(v)) ? "—" : parseFloat(v).toFixed(2)+"x";
-
-  const logoUrl = profile.image || profile.logo;
-  const logoHtml = logoUrl
-    ? `<img src="${logoUrl}" style="width:52px;height:52px;border-radius:10px;border:1px solid var(--border);object-fit:contain;background:#fafafa;" onerror="this.style.display='none'">`
-    : `<div style="width:52px;height:52px;border-radius:10px;border:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--text-muted);font-family:var(--font-mono);">${ticker.slice(0,3)}</div>`;
-
-  const eyVal  = mf.ey  ? pct(mf.ey)  : pct(keyMetrics.earningsYieldTTM);
-  const rocVal = mf.roc ? pct(mf.roc) : "n/a";
-
-  content.innerHTML = `
-    <div class="tk-header">
-      <div class="tk-logo-wrap">${logoHtml}</div>
-      <div class="tk-header-text">
-        <div class="tk-name-row">
-          <h2 style="font-size:20px;font-weight:700;color:var(--text);margin:0;">${profile.companyName || ticker}</h2>
-          <span class="tk-ticker-badge">${ticker}</span>
-          <span class="tk-exchange-badge">${profile.exchangeShortName || ""}</span>
-          <span class="tk-last-updated">${d.last_updated ? "Data Fetched: "+d.last_updated.split(" ")[0] : ""}</span>
-        </div>
-        <div class="tk-meta-row">
-          <span>${profile.sector || "—"}</span>
-          <span class="tk-dot">·</span>
-          <span>${profile.industry || "—"}</span>
-          <span class="tk-dot">·</span>
-          <span>${profile.country || "—"}</span>
-        </div>
-        <div class="tk-description" style="max-height:none;">${profile.description || ""}</div>
-      </div>
-      <div class="tk-rank-block">
-        <div class="tk-rank-label">MF Rank</div>
-        <div class="tk-rank-value">${mf.rank || "—"}</div>
-        <div class="tk-rank-sub">${mf.total ? "of "+mf.total.toLocaleString() : ""}</div>
-      </div>
-    </div>
-
-    <div class="tk-cards">
-      <div class="stat-card"><div class="stat-val">${px(quote.price || profile.price)}</div><div class="stat-label">Price</div></div>
-      <div class="stat-card"><div class="stat-val">${lrg(quote.marketCap || profile.mktCap)}</div><div class="stat-label">Market Cap</div></div>
-      <div class="stat-card"><div class="stat-val">${lrg(keyMetrics.enterpriseValueTTM)}</div><div class="stat-label">EV</div></div>
-      <div class="stat-card"><div class="stat-val">${eyVal}</div><div class="stat-label">Earnings Yield</div></div>
-      <div class="stat-card"><div class="stat-val">${rocVal}</div><div class="stat-label">ROC</div></div>
-      <div class="stat-card"><div class="stat-val">${rat(ratios.peRatioTTM)}</div><div class="stat-label">P/E (TTM)</div></div>
-    </div>
-
-    <div class="tk-sections">
-      <div class="tk-section">
-        <div class="tk-section-title">Valuation</div>
-        <table class="tk-table">
-          <tr><td class="tk-td-label">P/E (TTM)</td><td class="tk-td-val">${rat(ratios.peRatioTTM)}</td></tr>
-          <tr><td class="tk-td-label">P/B</td><td class="tk-td-val">${rat(ratios.priceToBookRatioTTM)}</td></tr>
-          <tr><td class="tk-td-label">EV / EBITDA</td><td class="tk-td-val">${x(keyMetrics.evToOperatingCashFlowTTM || ratios.enterpriseValueMultipleTTM)}</td></tr>
-          <tr><td class="tk-td-label">EV / Revenue</td><td class="tk-td-val">${x(keyMetrics.evToSalesTTM)}</td></tr>
-          <tr><td class="tk-td-label">P/FCF</td><td class="tk-td-val">${rat(ratios.priceToFreeCashFlowsRatioTTM)}</td></tr>
-          <tr><td class="tk-td-label">52-wk High</td><td class="tk-td-val">${px(quote.yearHigh)}</td></tr>
-          <tr><td class="tk-td-label">52-wk Low</td><td class="tk-td-val">${px(quote.yearLow)}</td></tr>
-        </table>
-      </div>
-      <div class="tk-section">
-        <div class="tk-section-title">Profitability</div>
-        <table class="tk-table">
-          <tr><td class="tk-td-label">Gross Margin</td><td class="tk-td-val">${pct(ratios.grossProfitMarginTTM)}</td></tr>
-          <tr><td class="tk-td-label">Operating Margin</td><td class="tk-td-val">${pct(ratios.operatingProfitMarginTTM)}</td></tr>
-          <tr><td class="tk-td-label">Net Margin</td><td class="tk-td-val">${pct(ratios.netProfitMarginTTM)}</td></tr>
-          <tr><td class="tk-td-label">ROE</td><td class="tk-td-val">${pct(ratios.returnOnEquityTTM)}</td></tr>
-          <tr><td class="tk-td-label">ROA</td><td class="tk-td-val">${pct(ratios.returnOnAssetsTTM)}</td></tr>
-          <tr><td class="tk-td-label">ROIC</td><td class="tk-td-val">${pct(keyMetrics.roicTTM)}</td></tr>
-          <tr><td class="tk-td-label">EBITDA</td><td class="tk-td-val">${lrg(income.ebitda || inc?.ebitda)}</td></tr>
-        </table>
-      </div>
-      <div class="tk-section">
-        <div class="tk-section-title">Financial Health</div>
-        <table class="tk-table">
-          <tr><td class="tk-td-label">Current Ratio</td><td class="tk-td-val">${rat(ratios.currentRatioTTM)}</td></tr>
-          <tr><td class="tk-td-label">Debt / Equity</td><td class="tk-td-val">${rat(ratios.debtEquityRatioTTM)}</td></tr>
-          <tr><td class="tk-td-label">Interest Coverage</td><td class="tk-td-val">${rat(ratios.interestCoverageTTM)}</td></tr>
-          <tr><td class="tk-td-label">Cash & Equiv.</td><td class="tk-td-val">${lrg(bal?.cashAndCashEquivalents)}</td></tr>
-          <tr><td class="tk-td-label">Total Debt</td><td class="tk-td-val">${lrg(bal?.totalDebt)}</td></tr>
-          <tr><td class="tk-td-label">FCF / Share</td><td class="tk-td-val">${px(keyMetrics.freeCashFlowPerShareTTM)}</td></tr>
-          <tr><td class="tk-td-label">Dividend Yield</td><td class="tk-td-val">${pct(ratios.dividendYieldTTM)}</td></tr>
-        </table>
-      </div>
-      <div class="tk-section">
-        <div class="tk-section-title">Growth</div>
-        <table class="tk-table">
-          <tr><td class="tk-td-label">Revenue (TTM)</td><td class="tk-td-val">${lrg(inc?.revenue)}</td></tr>
-          <tr><td class="tk-td-label">Revenue Growth</td><td class="tk-td-val">${pct(ratios.revenueGrowthTTM)}</td></tr>
-          <tr><td class="tk-td-label">EPS (TTM)</td><td class="tk-td-val">${rat(quote.eps)}</td></tr>
-          <tr><td class="tk-td-label">EPS Growth</td><td class="tk-td-val">${pct(keyMetrics.epsGrowthTTM || ratios.epsGrowthTTM)}</td></tr>
-          <tr><td class="tk-td-label">Net Income</td><td class="tk-td-val">${lrg(inc?.netIncome)}</td></tr>
-          <tr><td class="tk-td-label">Shares Out.</td><td class="tk-td-val">${profile.sharesOutstanding ? Math.round(profile.sharesOutstanding).toLocaleString() : "—"}</td></tr>
-          <tr><td class="tk-td-label">Beta</td><td class="tk-td-val">${rat(profile.beta)}</td></tr>
-        </table>
-      </div>
-    </div>
-    <div class="tk-source-note">${d.source === "live" ? "⚡ Live data · "+new Date().toLocaleString() : "🗄 From local vault · last updated "+(d.last_updated || "unknown")}</div>
-  `;
+  content.innerHTML = buildTickerHTML(ticker, d);
+  wireTickerInteractions(content, ticker, () => openTickerModal(ticker));
 }
 
 document.getElementById("modal-close").addEventListener("click", () => {
@@ -1071,6 +858,175 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
     const positive = goodHigh ? val > 0 : val < 0;
     el.classList.toggle("tk-val-positive", positive);
     el.classList.toggle("tk-val-negative", !positive);
+  }
+
+  // ── Single source of truth for ticker markup ─────────────────────────
+  // Used by both the Single Ticker tab (renderTicker) and the screener's
+  // "financials" popup (openTickerModal). Change a metric here and both
+  // places update — no more drift between the two views.
+  function buildTickerHTML(ticker, d) {
+    const profile    = d.profile     || {};
+    const quote      = d.quote       || {};
+    const ratios     = d.ratios      || {};
+    const keyMetrics = d.key_metrics || {};
+    const income     = d.income      || {};
+    const balance    = d.balance     || {};
+    const mf         = d.mf          || {};
+    const inc        = Array.isArray(income)  ? income[0]  : income;
+    const bal        = Array.isArray(balance) ? balance[0] : balance;
+    const cf         = d.cf ? (Array.isArray(d.cf) ? d.cf[0] : d.cf) : {};
+
+    const logoUrl = profile.image || profile.logo;
+    const logoHtml = logoUrl
+      ? `<img src="${logoUrl}" alt="" class="tk-logo" onerror="this.outerHTML='<div class=&quot;tk-logo-fallback&quot;>${ticker.slice(0,3)}</div>'">`
+      : `<div class="tk-logo-fallback">${ticker.slice(0,3)}</div>`;
+
+    const eyVal  = mf.ey  ? tkFmt(mf.ey,  "pct") : tkFmt(keyMetrics.earningsYieldTTM, "pct");
+    const rocVal = mf.roc ? tkFmt(mf.roc, "pct") : "n/a";
+    const eyColorClass  = tkColorClass(parseFloat(mf.ey || keyMetrics.earningsYieldTTM));
+
+    const desc = profile.description || "";
+    const descId = "tk-desc-" + Math.random().toString(36).slice(2, 8);
+
+    const zVal = d.z_score;
+    const zColorClass = tkColorClass(zVal != null ? (zVal > 2.99 ? 1 : zVal < 1.81 ? -1 : 0) : null);
+    const fColorClass = tkColorClass(d.f_score);
+
+    return `
+      <div class="tk-header">
+        <div class="tk-logo-wrap">${logoHtml}</div>
+        <div class="tk-header-text">
+          <div class="tk-name-row">
+            <h2 class="tk-name">${profile.companyName || ticker}</h2>
+            <span class="tk-ticker-badge">${ticker}</span>
+            <span class="tk-exchange-badge">${profile.exchangeShortName || profile.exchange || ""}</span>
+            <span class="tk-last-updated">${d.last_updated ? "Data Fetched: " + d.last_updated.split(" ")[0] : ""}</span>
+            <button class="tk-refresh-btn" data-ticker="${ticker}">↻ Update</button>
+          </div>
+          <div class="tk-meta-row">
+            <span>${profile.sector || "—"}</span>
+            <span class="tk-dot">·</span>
+            <span>${profile.industry || "—"}</span>
+            <span class="tk-dot">·</span>
+            <span>${profile.country || "—"}</span>
+          </div>
+          <div class="tk-description" id="${descId}">${desc}</div>
+        </div>
+        <div class="tk-rank-block">
+          <div class="tk-rank-label">MF Rank <span class="infotip" title="Ranked against the entire market universe (~3,700 stocks)">ⓘ</span></div>
+          <div class="tk-rank-value">${mf.rank || "none"}</div>
+          <div class="tk-rank-sub">${mf.total ? "of " + mf.total.toLocaleString() : (mf.rank ? "" : "not in DB")}</div>
+        </div>
+      </div>
+
+      <div class="tk-cards">
+        <div class="stat-card"><div class="stat-val">${tkFmt(quote.price || profile.price, "price")}</div><div class="stat-label">Price</div></div>
+        <div class="stat-card"><div class="stat-val">${tkFmt(quote.marketCap || profile.mktCap, "large")}</div><div class="stat-label">Market Cap</div></div>
+        <div class="stat-card"><div class="stat-val">${tkFmt(keyMetrics.enterpriseValueTTM, "large")}</div><div class="stat-label">EV</div></div>
+        <div class="stat-card"><div class="stat-val ${eyColorClass}">${eyVal}</div><div class="stat-label">Earnings Yield</div></div>
+        <div class="stat-card"><div class="stat-val">${rocVal}</div><div class="stat-label">ROC</div></div>
+        <div class="stat-card"><div class="stat-val">${mf.mf_score ? Math.round(mf.mf_score) : "n/a"}</div><div class="stat-label">MF Score</div></div>
+      </div>
+
+      <div class="tk-sections">
+        <div class="tk-section">
+          <div class="tk-section-title">Valuation</div>
+          <table class="tk-table">
+            <tr><td class="tk-td-label">P/E (TTM)</td><td class="tk-td-val">${tkFmt(ratios.peRatioTTM, "ratio")}</td></tr>
+            <tr><td class="tk-td-label">P/B</td><td class="tk-td-val">${tkFmt(ratios.priceToBookRatioTTM, "ratio")}</td></tr>
+            <tr><td class="tk-td-label">EV / EBITDA</td><td class="tk-td-val">${tkFmt(keyMetrics.evToOperatingCashFlowTTM || ratios.enterpriseValueMultipleTTM, "x")}</td></tr>
+            <tr><td class="tk-td-label">EV / Revenue</td><td class="tk-td-val">${tkFmt(keyMetrics.evToSalesTTM, "x")}</td></tr>
+            <tr><td class="tk-td-label">P/FCF</td><td class="tk-td-val">${tkFmt(ratios.priceToFreeCashFlowsRatioTTM, "ratio")}</td></tr>
+            <tr><td class="tk-td-label">52-wk High</td><td class="tk-td-val">${tkFmt(quote.yearHigh, "price")}</td></tr>
+            <tr><td class="tk-td-label">52-wk Low</td><td class="tk-td-val">${tkFmt(quote.yearLow, "price")}</td></tr>
+          </table>
+        </div>
+
+        <div class="tk-section">
+          <div class="tk-section-title">Profitability</div>
+          <table class="tk-table">
+            <tr><td class="tk-td-label">Gross Margin</td><td class="tk-td-val ${tkColorClass(parseFloat(ratios.grossProfitMarginTTM)*100)}">${tkFmt(ratios.grossProfitMarginTTM, "pct")}</td></tr>
+            <tr><td class="tk-td-label">Operating Margin</td><td class="tk-td-val ${tkColorClass(parseFloat(ratios.operatingProfitMarginTTM)*100)}">${tkFmt(ratios.operatingProfitMarginTTM, "pct")}</td></tr>
+            <tr><td class="tk-td-label">Net Margin</td><td class="tk-td-val ${tkColorClass(parseFloat(ratios.netProfitMarginTTM)*100)}">${tkFmt(ratios.netProfitMarginTTM, "pct")}</td></tr>
+            <tr><td class="tk-td-label">ROE</td><td class="tk-td-val ${tkColorClass(parseFloat(ratios.returnOnEquityTTM)*100)}">${tkFmt(ratios.returnOnEquityTTM, "pct")}</td></tr>
+            <tr><td class="tk-td-label">ROA</td><td class="tk-td-val ${tkColorClass(parseFloat(ratios.returnOnAssetsTTM)*100)}">${tkFmt(ratios.returnOnAssetsTTM, "pct")}</td></tr>
+            <tr><td class="tk-td-label">ROIC</td><td class="tk-td-val ${tkColorClass(parseFloat(keyMetrics.roicTTM)*100)}">${tkFmt(keyMetrics.roicTTM, "pct")}</td></tr>
+            <tr><td class="tk-td-label">EBITDA</td><td class="tk-td-val">${tkFmt(income.ebitda || inc?.ebitda, "large")}</td></tr>
+          </table>
+        </div>
+
+        <div class="tk-section">
+          <div class="tk-section-title">Financial Health</div>
+          <table class="tk-table">
+            <tr><td class="tk-td-label">Current Ratio</td><td class="tk-td-val">${tkFmt(ratios.currentRatioTTM, "ratio")}</td></tr>
+            <tr><td class="tk-td-label">Debt / Equity</td><td class="tk-td-val ${tkColorClass(parseFloat(ratios.debtEquityRatioTTM), false)}">${tkFmt(ratios.debtEquityRatioTTM, "ratio")}</td></tr>
+            <tr><td class="tk-td-label">Interest Coverage</td><td class="tk-td-val ${tkColorClass(parseFloat(ratios.interestCoverageTTM))}">${tkFmt(ratios.interestCoverageTTM, "ratio")}</td></tr>
+            <tr><td class="tk-td-label">Cash & Equiv.</td><td class="tk-td-val">${tkFmt(bal?.cashAndCashEquivalents, "large")}</td></tr>
+            <tr><td class="tk-td-label">Total Debt</td><td class="tk-td-val">${tkFmt(bal?.totalDebt, "large")}</td></tr>
+            <tr><td class="tk-td-label">FCF / Share</td><td class="tk-td-val">${tkFmt(keyMetrics.freeCashFlowPerShareTTM, "price")}</td></tr>
+            <tr><td class="tk-td-label">Dividend Yield</td><td class="tk-td-val">${tkFmt(ratios.dividendYieldTTM, "pct")}</td></tr>
+            <tr><td class="tk-td-label">F-Score <span class="infotip" title="A measure of momentum. Higher is better. Below 3 suggests deteriorating fundamentals.">ⓘ</span></td><td class="tk-td-val ${fColorClass}">${d.f_score != null ? d.f_score + " / 9" : "n/a"}</td></tr>
+            <tr><td class="tk-td-label">Z-Score <span class="infotip" title="Risk of bankrupcy. Above 2.99: safe. 1.81–2.99: grey zone. Below 1.81: distressed.">ⓘ</span></td><td class="tk-td-val ${zColorClass}">${zVal != null ? zVal : "n/a"}</td></tr>
+          </table>
+        </div>
+
+        <div class="tk-section">
+          <div class="tk-section-title">Growth</div>
+          <table class="tk-table">
+            <tr><td class="tk-td-label">Revenue (TTM)</td><td class="tk-td-val">${tkFmt(inc?.revenue, "large")}</td></tr>
+            <tr><td class="tk-td-label">Revenue Growth</td><td class="tk-td-val ${tkColorClass(parseFloat(ratios.revenueGrowthTTM)*100)}">${tkFmt(ratios.revenueGrowthTTM, "pct")}</td></tr>
+            <tr><td class="tk-td-label">EPS (TTM)</td><td class="tk-td-val">${tkFmt(quote.eps, "ratio")}</td></tr>
+            <tr><td class="tk-td-label">EPS Growth</td><td class="tk-td-val ${tkColorClass(parseFloat(keyMetrics.epsGrowthTTM || ratios.epsGrowthTTM)*100)}">${tkFmt(keyMetrics.epsGrowthTTM || ratios.epsGrowthTTM, "pct")}</td></tr>
+            <tr><td class="tk-td-label">Net Income</td><td class="tk-td-val">${tkFmt(inc?.netIncome, "large")}</td></tr>
+            <tr><td class="tk-td-label">Shares Out.</td><td class="tk-td-val">${tkFmt(profile.sharesOutstanding || quote.sharesOutstanding, "int")}</td></tr>
+            <tr><td class="tk-td-label">Beta</td><td class="tk-td-val">${tkFmt(profile.beta, "ratio")}</td></tr>
+            <tr><td class="tk-td-label">Operating Cash Flow</td><td class="tk-td-val">${tkFmt(cf?.operatingCashFlow, "large")}</td></tr>
+            <tr><td class="tk-td-label">Free Cash Flow</td><td class="tk-td-val">${tkFmt(cf?.freeCashFlow, "large")}</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="tk-source-note">${d.source === "live" ? "⚡ Live data fetched from FMP · " + new Date().toLocaleString() : "🗄 From local vault · last updated " + (d.last_updated || "unknown")}</div>
+    `;
+  }
+
+  // Returns a CSS class name instead of mutating an element directly —
+  // buildTickerHTML produces a string, so coloring has to be baked into
+  // the class list at construction time, not applied to a live DOM node.
+  function tkColorClass(val, goodHigh = true) {
+    if (val == null || isNaN(val)) return "";
+    const positive = goodHigh ? val > 0 : val < 0;
+    return positive ? "tk-val-positive" : "tk-val-negative";
+  }
+
+  // After buildTickerHTML's string is injected into a container, wire up
+  // the bits that need live JS: the description "show more" toggle and
+  // the refresh button. Both renderTicker and openTickerModal call this
+  // on their own container after setting innerHTML.
+  function wireTickerInteractions(container, ticker, onRefreshDone) {
+    const descEl = container.querySelector(".tk-description");
+    if (descEl && descEl.textContent.length > 180) {
+      const btn = document.createElement("button");
+      btn.className = "tk-desc-toggle";
+      btn.textContent = "Show more";
+      btn.onclick = () => {
+        const expanded = descEl.classList.toggle("expanded");
+        btn.textContent = expanded ? "Show less" : "Show more";
+      };
+      descEl.after(btn);
+    }
+
+    const refreshBtn = container.querySelector(".tk-refresh-btn");
+    if (refreshBtn) {
+      refreshBtn.onclick = async () => {
+        refreshBtn.textContent = "↻ Updating…";
+        refreshBtn.disabled = true;
+        await fetch(`/ticker/${ticker}/refresh`, { method: "POST" });
+        refreshBtn.textContent = "↻ Update";
+        refreshBtn.disabled = false;
+        if (onRefreshDone) onRefreshDone();
+      };
+    }
   }
 
   // ── Company name search / autocomplete ──────────────────────────────
@@ -1199,152 +1155,10 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
   }
 
   function renderTicker(ticker, d) {
-    const profile    = d.profile     || {};
-    const quote      = d.quote       || {};
-    const ratios     = d.ratios      || {};
-    const keyMetrics = d.key_metrics || {};
-    const income     = d.income      || {};
-    const balance    = d.balance     || {};
-    const mf         = d.mf          || {};
-    const cf = d.cf ? (Array.isArray(d.cf) ? d.cf[0] : d.cf) : {};
-    set("tk-ocf", tkFmt(cf?.operatingCashFlow, "large"));
-    set("tk-fcf", tkFmt(cf?.freeCashFlow, "large"));
-
-    const logoEl     = document.getElementById("tk-logo");
-    const fallbackEl = document.getElementById("tk-logo-fallback");
-    const logoUrl    = profile.image || profile.logo;
-    if (logoUrl) {
-      logoEl.src = logoUrl;
-      logoEl.classList.remove("hidden");
-      fallbackEl.style.display = "none";
-      logoEl.onerror = () => {
-        logoEl.classList.add("hidden");
-        fallbackEl.style.display = "";
-        fallbackEl.textContent = ticker.slice(0, 3);
-      };
-    } else {
-      logoEl.classList.add("hidden");
-      fallbackEl.style.display = "";
-      fallbackEl.textContent = ticker.slice(0, 3);
-    }
-
-    document.getElementById("tk-name").textContent           = profile.companyName || ticker;
-    document.getElementById("tk-ticker-badge").textContent   = ticker;
-    document.getElementById("tk-exchange-badge").textContent = profile.exchangeShortName || profile.exchange || "";
-    document.getElementById("tk-last-updated").textContent = d.last_updated
-      ? `Data Fetched: ${d.last_updated.split(" ")[0]}`
-      : "";
-    document.getElementById("tk-sector").textContent         = profile.sector || "—";
-    document.getElementById("tk-industry").textContent       = profile.industry || "—";
-    document.getElementById("tk-country").textContent        = profile.country || "—";
-
-    const descEl = document.getElementById("tk-description");
-    const desc = profile.description || "";
-    descEl.textContent = desc;
-    descEl.classList.remove("expanded");
-    const old = descEl.nextElementSibling;
-    if (old && old.classList.contains("tk-desc-toggle")) old.remove();
-    if (desc.length > 180) {
-      const btn = document.createElement("button");
-      btn.className = "tk-desc-toggle";
-      btn.textContent = "Show more";
-      btn.onclick = () => {
-        const expanded = descEl.classList.toggle("expanded");
-        btn.textContent = expanded ? "Show less" : "Show more";
-      };
-      descEl.after(btn);
-    }
-
-    const rankEl  = document.getElementById("tk-rank-value");
-    const rankSub = document.getElementById("tk-rank-sub");
-    if (mf.rank) {
-      rankEl.textContent  = mf.rank;
-      rankSub.textContent = mf.total ? `of ${mf.total.toLocaleString()}` : "";
-    } else {
-      rankEl.textContent  = "none";
-      rankSub.textContent = "not in DB";
-    }
-
-    set("tk-price",   tkFmt(quote.price || profile.price, "price"));
-    set("tk-mcap",    tkFmt(quote.marketCap || profile.mktCap, "large"));
-    set("tk-ev",      tkFmt(keyMetrics.enterpriseValueTTM, "large"));
-    const eyEl  = document.getElementById("tk-ey");
-    const rocEl = document.getElementById("tk-roc");
-    eyEl.textContent  = mf.ey  ? tkFmt(mf.ey,  "pct") : tkFmt(keyMetrics.earningsYieldTTM, "pct");
-    rocEl.textContent = mf.roc ? tkFmt(mf.roc, "pct") : "n/a";
-    tkColor(eyEl, parseFloat(mf.ey || keyMetrics.earningsYieldTTM));
-    set("tk-mfscore", mf.mf_score ? Math.round(mf.mf_score) : "n/a");
-
-    set("tk-pe",        tkFmt(ratios.peRatioTTM, "ratio"));
-    set("tk-pb",        tkFmt(ratios.priceToBookRatioTTM, "ratio"));
-    set("tk-ev-ebitda", tkFmt(keyMetrics.evToOperatingCashFlowTTM || ratios.enterpriseValueMultipleTTM, "x"));
-    set("tk-ev-rev",    tkFmt(keyMetrics.evToSalesTTM, "x"));
-    set("tk-pfcf",      tkFmt(ratios.priceToFreeCashFlowsRatioTTM, "ratio"));
-    set("tk-52h",       tkFmt(quote.yearHigh, "price"));
-    set("tk-52l",       tkFmt(quote.yearLow,  "price"));
-
-    const gmEl   = document.getElementById("tk-gross-margin");
-    const omEl   = document.getElementById("tk-op-margin");
-    const nmEl   = document.getElementById("tk-net-margin");
-    const roeEl  = document.getElementById("tk-roe");
-    const roaEl  = document.getElementById("tk-roa");
-    const roicEl = document.getElementById("tk-roic");
-    gmEl.textContent   = tkFmt(ratios.grossProfitMarginTTM,     "pct");
-    omEl.textContent   = tkFmt(ratios.operatingProfitMarginTTM, "pct");
-    nmEl.textContent   = tkFmt(ratios.netProfitMarginTTM,       "pct");
-    roeEl.textContent  = tkFmt(ratios.returnOnEquityTTM,        "pct");
-    roaEl.textContent  = tkFmt(ratios.returnOnAssetsTTM,        "pct");
-    roicEl.textContent = tkFmt(keyMetrics.roicTTM,              "pct");
-    [gmEl, omEl, nmEl, roeEl, roaEl, roicEl].forEach(el => tkColor(el, parseFloat(el.textContent)));
-    set("tk-ebitda", tkFmt(income.ebitda || (Array.isArray(income) ? income[0]?.ebitda : null), "large"));
-
-    const deEl = document.getElementById("tk-de");
-    const icEl = document.getElementById("tk-int-cov");
-    set("tk-current-ratio", tkFmt(ratios.currentRatioTTM, "ratio"));
-    deEl.textContent = tkFmt(ratios.debtEquityRatioTTM,  "ratio");
-    icEl.textContent = tkFmt(ratios.interestCoverageTTM, "ratio");
-    tkColor(deEl, parseFloat(deEl.textContent), false);
-    tkColor(icEl, parseFloat(icEl.textContent));
-    const bal = Array.isArray(balance) ? balance[0] : balance;
-    set("tk-cash",      tkFmt(bal?.cashAndCashEquivalents, "large"));
-    set("tk-debt",      tkFmt(bal?.totalDebt, "large"));
-    set("tk-fcf-share", tkFmt(keyMetrics.freeCashFlowPerShareTTM, "price"));
-    set("tk-div-yield", tkFmt(ratios.dividendYieldTTM, "pct"));
-
-    const fScoreEl = document.getElementById("tk-fscore");
-    const zScoreEl = document.getElementById("tk-zscore");
-    fScoreEl.textContent = d.f_score != null ? d.f_score + " / 9" : "n/a";
-    zScoreEl.textContent = d.z_score != null ? d.z_score : "n/a";
-    tkColor(fScoreEl, d.f_score);
-    tkColor(zScoreEl, d.z_score != null ? (d.z_score > 2.99 ? 1 : d.z_score < 1.81 ? -1 : 0) : null);
-
-    const rgEl = document.getElementById("tk-rev-growth");
-    const egEl = document.getElementById("tk-eps-growth");
-    const inc  = Array.isArray(income) ? income[0] : income;
-    set("tk-revenue",    tkFmt(inc?.revenue, "large"));
-    rgEl.textContent   = tkFmt(ratios.revenueGrowthTTM, "pct");
-    set("tk-eps",        tkFmt(quote.eps, "ratio"));
-    egEl.textContent   = tkFmt(keyMetrics.epsGrowthTTM || ratios.epsGrowthTTM, "pct");
-    [rgEl, egEl].forEach(el => tkColor(el, parseFloat(el.textContent)));
-    set("tk-net-income", tkFmt(inc?.netIncome, "large"));
-    set("tk-shares",     tkFmt(profile.sharesOutstanding || quote.sharesOutstanding, "int"));
-    set("tk-beta",       tkFmt(profile.beta, "ratio"));
-
-    const note = document.getElementById("tk-source-note");
-    note.textContent = d.source === "live"
-      ? `⚡ Live data fetched from FMP · ${new Date().toLocaleString()}`
-      : `🗄 From local vault · last updated ${d.last_updated || "unknown"}`;
-
+    const container = document.getElementById("ticker-result-content");
+    container.innerHTML = buildTickerHTML(ticker, d);
+    wireTickerInteractions(container, ticker, lookupTicker);
     tkShow("ticker-result");
-    document.getElementById("tk-refresh-btn").onclick = async () => {
-      const btn = document.getElementById("tk-refresh-btn");
-        btn.textContent = "↻ Updating…";
-        btn.disabled = true;
-        await fetch(`/ticker/${ticker}/refresh`, { method: "POST" });
-        btn.textContent = "↻ Update";
-        btn.disabled = false;
-        lookupTicker();
-      };
   }
 
   function set(id, val) {
