@@ -39,3 +39,5 @@ pd
 requests
 math
 cache.db
+your_database.db
+*.db
