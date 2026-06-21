@@ -170,10 +170,6 @@ def company_search(query):
 
     conn = mf.get_conn()
 
-    # 1. Local cache first — fast, free, covers anything already scanned.
-    # company_cache has one row per (ticker, period), so group to avoid
-    # the same ticker appearing 2-3x (once per period) in results.
-
     local = conn.execute(
         """SELECT ticker, name FROM (
                SELECT ticker, MAX(name) as name
@@ -182,10 +178,22 @@ def company_search(query):
                GROUP BY ticker
            )
            ORDER BY
-             CASE WHEN name LIKE ? THEN 0 ELSE 1 END,
+             CASE
+               WHEN ticker = ?            THEN 0  -- exact ticker match
+               WHEN ticker LIKE ?         THEN 1  -- ticker starts with query
+               WHEN name LIKE ?           THEN 2  -- name starts with query
+               WHEN name LIKE ?           THEN 3  -- query is a whole word in name
+               ELSE 4                              -- substring match (ticker or name)
+             END,
              name
            LIMIT 10""",
-        (f"%{query}%", f"{query}%", f"{query}%")
+        (
+            f"%{query}%", f"%{query}%",  # WHERE: broaden ticker to substring too
+            query,  # tier 0: exact ticker
+            f"{query}%",  # tier 1: ticker prefix
+            f"{query}%",  # tier 2: name prefix
+            f"% {query}%",  # tier 3: whole-word in name (crude)
+        )
     ).fetchall()
 
     conn.close()
@@ -208,6 +216,16 @@ def company_search(query):
     except requests.RequestException:
         results = []
 
+    def rank(r):
+        q = query.upper()
+        ticker, name = r.get("symbol", "").upper(), r.get("name", "").upper()
+        if ticker == q: return 0
+        if ticker.startswith(q): return 1
+        if name.startswith(q): return 2
+        if f" {q}" in name: return 3
+        return 4
+
+    results.sort(key=rank)
     return jsonify([{"ticker": r["symbol"], "name": r["name"]} for r in results])
 
 @app.route("/description/<ticker>")
@@ -309,11 +327,10 @@ def ticker_lookup(symbol):
         if not isinstance(bal_list, list): bal_list = [bal_list]
         if not isinstance(inc_list, list): inc_list = [inc_list]
         if not isinstance(cf_list, list): cf_list = [cf_list]
-        f_score = mf._compute_f_score(inc_list, bal_list, cf_list)
-        print(f"DEBUG after f_score={f_score}")
         z_score = mf._compute_z_score(profile if isinstance(profile, dict) else {}, inc_list, bal_list)
         print(f"DEBUG after z_score={z_score}")
         f_score = mf._compute_f_score(inc_list, bal_list, cf_list)
+        z_score = mf._compute_z_score(profile if isinstance(profile, dict) else {}, inc_list, bal_list)
         z_score = mf._compute_z_score(profile if isinstance(profile, dict) else {}, inc_list, bal_list)
     except Exception as e:
         print(f"[ticker_lookup] F/Z score error: {e}")

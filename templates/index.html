@@ -1097,7 +1097,7 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
   }
 
   function tkRenderSearchDropdown(matches) {
-    tkSearchActiveIndex = -1;
+    tkSearchActiveIndex = matches && matches.length ? 0 : -1;
     if (!matches || !matches.length) {
       tkSearchDropdown.innerHTML = `<div class="ticker-search-noresult">No match for that name — try the ticker symbol, or the company's full registered name (e.g. "Space Exploration" instead of "SpaceX").</div>`;
       tkSearchDropdown.classList.remove("hidden");
@@ -1118,6 +1118,7 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
         lookupTicker();
       });
     });
+    tkHighlightSearchResult(tkSearchDropdown.querySelectorAll(".ticker-search-result"));
   }
 
   function tkHighlightSearchResult(items) {
