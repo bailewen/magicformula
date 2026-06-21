@@ -264,11 +264,10 @@
 <div id="tab-ticker" class="hidden">
 
   <!-- Search bar -->
-  <div class="ticker-search-row" style="position:relative;">
-    <input type="text" id="ticker-input" class="input ticker-input" placeholder="Ticker or company name" maxlength="60" autocomplete="off">
+  <div class="ticker-search-row">
+    <input type="text" id="ticker-input" class="input ticker-input" placeholder="e.g. AAPL" maxlength="10">
     <button id="ticker-btn" class="ticker-btn">Look Up</button>
     <span id="ticker-error" class="ticker-error hidden"></span>
-    <div id="ticker-search-dropdown" class="ticker-search-dropdown hidden"></div>
   </div>
 
   <!-- States -->
@@ -1073,101 +1072,7 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
     el.classList.toggle("tk-val-negative", !positive);
   }
 
-  // ── Company name search / autocomplete ──────────────────────────────
-  let tkSearchTimeout = null;
-  let tkSearchActiveIndex = -1;
-
-  const tkSearchInput = document.getElementById("ticker-input");
-  const tkSearchDropdown = document.getElementById("ticker-search-dropdown");
-
-  tkSearchInput.addEventListener("input", (e) => {
-    const q = e.target.value.trim();
-    clearTimeout(tkSearchTimeout);
-
-    if (q.length < 2) {
-      tkHideSearchDropdown();
-      return;
-    }
-
-    tkSearchTimeout = setTimeout(() => tkRunSearch(q), 250);
-  });
-
-  // Arrow keys / Enter navigate the dropdown when it's open
-  tkSearchInput.addEventListener("keydown", (e) => {
-    const items = tkSearchDropdown.querySelectorAll(".ticker-search-result");
-    if (tkSearchDropdown.classList.contains("hidden") || !items.length) return;
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      tkSearchActiveIndex = Math.min(tkSearchActiveIndex + 1, items.length - 1);
-      tkHighlightSearchResult(items);
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      tkSearchActiveIndex = Math.max(tkSearchActiveIndex - 1, 0);
-      tkHighlightSearchResult(items);
-    } else if (e.key === "Enter" && tkSearchActiveIndex >= 0) {
-      e.preventDefault();
-      items[tkSearchActiveIndex].click();
-    } else if (e.key === "Escape") {
-      tkHideSearchDropdown();
-    }
-  });
-
-  // Click outside closes the dropdown
-  document.addEventListener("click", (e) => {
-    if (!tkSearchDropdown.contains(e.target) && e.target !== tkSearchInput) {
-      tkHideSearchDropdown();
-    }
-  });
-
-  async function tkRunSearch(query) {
-    let matches;
-    try {
-      const res = await fetch(`/search/${encodeURIComponent(query)}`);
-      matches = await res.json();
-    } catch (e) {
-      tkHideSearchDropdown();
-      return;
-    }
-    tkRenderSearchDropdown(matches);
-  }
-
-  function tkRenderSearchDropdown(matches) {
-    tkSearchActiveIndex = -1;
-    if (!matches || !matches.length) {
-      tkHideSearchDropdown();
-      return;
-    }
-    tkSearchDropdown.innerHTML = matches.map(m =>
-      `<div class="ticker-search-result" data-ticker="${m.ticker}">
-         <span class="ticker-search-result-symbol">${m.ticker}</span>
-         <span class="ticker-search-result-name">${m.name || ""}</span>
-       </div>`
-    ).join("");
-    tkSearchDropdown.classList.remove("hidden");
-
-    tkSearchDropdown.querySelectorAll(".ticker-search-result").forEach(row => {
-      row.addEventListener("click", () => {
-        tkSearchInput.value = row.dataset.ticker;
-        tkHideSearchDropdown();
-        lookupTicker();
-      });
-    });
-  }
-
-  function tkHighlightSearchResult(items) {
-    items.forEach((el, i) => el.classList.toggle("active", i === tkSearchActiveIndex));
-    items[tkSearchActiveIndex]?.scrollIntoView({ block: "nearest" });
-  }
-
-  function tkHideSearchDropdown() {
-    tkSearchDropdown.classList.add("hidden");
-    tkSearchDropdown.innerHTML = "";
-    tkSearchActiveIndex = -1;
-  }
-
   async function lookupTicker() {
-    tkHideSearchDropdown();
     const raw = document.getElementById("ticker-input").value.trim().toUpperCase();
     const errSpan = document.getElementById("ticker-error");
     errSpan.classList.add("hidden");

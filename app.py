@@ -10,6 +10,7 @@ import uuid
 import random
 import pandas as pd
 import sqlite3
+import requests
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -160,6 +161,45 @@ def stock_detail(ticker):
         mf_row=mf_row,
         not_found=False
     )
+
+@app.route('/search/<query>')
+def company_search(query):
+    query = query.strip()
+    if len(query) < 2:
+        return jsonify([])
+
+    conn = mf.get_conn()
+
+    # 1. Local cache first — fast, free, covers anything already scanned.
+    # company_cache has one row per (ticker, period), so group to avoid
+    # the same ticker appearing 2-3x (once per period) in results.
+    local = conn.execute(
+        """SELECT ticker, MAX(name) as name FROM company_cache
+           WHERE name LIKE ? OR ticker LIKE ?
+           GROUP BY ticker LIMIT 10""",
+        (f"%{query}%", f"{query}%")
+    ).fetchall()
+    conn.close()
+
+    if local:
+        return jsonify([{"ticker": r["ticker"], "name": r["name"]} for r in local])
+
+    # 2. FMP fallback for anything not yet cached
+    api_key = os.getenv("FMP_API_KEY", "")
+    if not api_key:
+        return jsonify([])
+
+    try:
+        resp = requests.get(
+            "https://financialmodelingprep.com/api/v3/search",
+            params={"query": query, "limit": 10, "apikey": api_key},
+            timeout=5
+        )
+        results = resp.json() if resp.ok else []
+    except requests.RequestException:
+        results = []
+
+    return jsonify([{"ticker": r["symbol"], "name": r["name"]} for r in results])
 
 @app.route("/description/<ticker>")
 def description(ticker):

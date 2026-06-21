@@ -664,3 +664,44 @@ tr.desc-row td {
 #show-all-btn:hover {
   background: var(--bg-3);
 }
+
+.ticker-search-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  max-width: 420px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--bg-2, #fff);
+  border: 1px solid var(--bg-3, #ddd);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  z-index: 50;
+}
+
+.ticker-search-result {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.ticker-search-result:hover,
+.ticker-search-result.active {
+  background: var(--bg-3, #f0f0f0);
+}
+
+.ticker-search-result-symbol {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.ticker-search-result-name {
+  color: var(--text-2, #666);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
