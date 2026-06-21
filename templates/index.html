@@ -1099,7 +1099,7 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
   function tkRenderSearchDropdown(matches) {
     tkSearchActiveIndex = -1;
     if (!matches || !matches.length) {
-      tkSearchDropdown.innerHTML = `<div class="ticker-search-noresult">No match for that name. Try the ticker symbol, or the company's full registered name (brand names sometimes differ).</div>`;
+      tkSearchDropdown.innerHTML = `<div class="ticker-search-noresult">No match for that name — try the ticker symbol, or the company's full registered name (e.g. "Space Exploration" instead of "SpaceX").</div>`;
       tkSearchDropdown.classList.remove("hidden");
       return;
     }
@@ -1132,6 +1132,17 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
   }
 
   async function lookupTicker() {
+    // If the search dropdown is currently showing "no match" for this same
+    // text, don't also run a ticker lookup that will just fail and stack a
+    // second, redundant error message on top of it. Let the dropdown's
+    // message stand alone.
+    const dropdownShowingNoMatch =
+      !tkSearchDropdown.classList.contains("hidden") &&
+      tkSearchDropdown.querySelector(".ticker-search-noresult");
+    if (dropdownShowingNoMatch) {
+      return;
+    }
+
     tkHideSearchDropdown();
     const raw = document.getElementById("ticker-input").value.trim().toUpperCase();
     const errSpan = document.getElementById("ticker-error");
