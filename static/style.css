@@ -705,3 +705,9 @@ tr.desc-row td {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.ticker-search-noresult {
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  color: var(--text-2, #888);
+  font-style: italic;
+}

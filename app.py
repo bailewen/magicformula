@@ -173,12 +173,21 @@ def company_search(query):
     # 1. Local cache first — fast, free, covers anything already scanned.
     # company_cache has one row per (ticker, period), so group to avoid
     # the same ticker appearing 2-3x (once per period) in results.
+
     local = conn.execute(
-        """SELECT ticker, MAX(name) as name FROM company_cache
-           WHERE name LIKE ? OR ticker LIKE ?
-           GROUP BY ticker LIMIT 10""",
-        (f"%{query}%", f"{query}%")
+        """SELECT ticker, name FROM (
+               SELECT ticker, MAX(name) as name
+               FROM company_cache
+               WHERE name LIKE ? OR ticker LIKE ?
+               GROUP BY ticker
+           )
+           ORDER BY
+             CASE WHEN name LIKE ? THEN 0 ELSE 1 END,
+             name
+           LIMIT 10""",
+        (f"%{query}%", f"{query}%", f"{query}%")
     ).fetchall()
+
     conn.close()
 
     if local:
@@ -240,8 +249,7 @@ def ticker_lookup(symbol):
                 print(f"[ticker_lookup] {ep}/{symbol}: {e}")
     if not vault:
         conn.close()
-        return jsonify({"error": f"No data found for {symbol}"}), 404
-
+        return jsonify({"error": f"No match for {symbol}. Try the ticker symbol, or the company's full registered name (brand names sometimes differ)."}), 404
     def get(ep):
         pair = vault.get(ep)
         if not pair:
