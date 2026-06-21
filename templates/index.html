@@ -1048,6 +1048,14 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
     tkSearchTimeout = setTimeout(() => tkRunSearch(q), 250);
   });
 
+  // Clicking/tabbing back into a non-empty input fires no "input" event,
+  // so re-run the search on focus too — otherwise the dropdown that was
+  // closed by the click-outside handler never comes back.
+  tkSearchInput.addEventListener("focus", () => {
+    const q = tkSearchInput.value.trim();
+    if (q.length >= 2) tkRunSearch(q);
+  });
+
   // Arrow keys / Enter navigate the dropdown when it's open
   tkSearchInput.addEventListener("keydown", (e) => {
     const items = tkSearchDropdown.querySelectorAll(".ticker-search-result");
