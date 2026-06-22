@@ -13,6 +13,7 @@ import sqlite3
 import requests
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections import Counter
 
 # Add current directory to path so magicformula imports correctly
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -494,6 +495,7 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
         qualified = 0
         total = len(all_symbols)
         completed = 0
+        skip_reasons = Counter()
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = {
@@ -513,11 +515,12 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
 
                 try:
                     rec = future.result(timeout=5)
-                    if rec and rec.get("marketCap", 0) >= min_mcap:
+                    if rec and rec.get("type") == "success" and rec.get("marketCap", 0) >= min_mcap:
                         records.append(rec)
                         qualified += 1
-                    elif rec:
-                        filtered += 1  # returned data but failed mcap
+                    elif rec and rec.get("type") == "skip":
+                        filtered += 1
+                        skip_reasons[rec.get("reason", "Unknown")] += 1
                     else:
                         skipped += 1  # returned None — missing/incomplete data
                 except Exception:
@@ -535,12 +538,16 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
                 })
 
         if not records:
-            _push(q, {"type": "error", "message": "No qualifying stocks found. Try lowering min market cap or increasing scan limit."})
+            _push(q, {
+                "type": "error",
+                "message": "No qualifying stocks found. Try lowering min market cap or increasing scan limit.",
+                "skip_reasons": dict(skip_reasons.most_common(10))
+            })
             _finalize(scan_id, error="No qualifying stocks found.")
             return
 
-        _push(q, {"type": "status", "message": f"Found {len(records)} qualifying stocks. Ranking…", "step": 3})
-
+        _push(q, {"type": "done", "count": len(results), "total_analyzed": len(records), "summary": summary,
+                  "skip_reasons": dict(skip_reasons.most_common(10))})
         # ── Step 3: Rank ───────────────────────────────────────────────────
         df = pd.DataFrame(records)
         ranked = mf.magic_formula_rank(df)
