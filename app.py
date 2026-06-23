@@ -586,6 +586,9 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
         _push(q, {"type": "done", "count": len(results), "total_analyzed": len(records), "summary": summary})
 
     except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(tb, flush=True)  # or use logging
         _push(q, {"type": "error", "message": str(e)})
         _finalize(scan_id, error=str(e))
 
