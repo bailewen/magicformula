@@ -458,9 +458,9 @@ def pull_company(symbol: str, annual: bool = False, include_goodwill: bool = Fal
         if result and "reason" not in result:
             if compute_z:
                 result["ZScore"] = _compute_z_score(prof, inc, bal)
-                if result["ZScore"] is not None and result["ZScore"] < 2.99:
-                    return {"type": "skip", "ticker": symbol, "name": prof.get("companyName", symbol),
-                            "reason": f"Z-score {result['ZScore']} below 2.99"}
+        #        if result["ZScore"] is not None and result["ZScore"] < 2.99:
+        #            return {"type": "skip", "ticker": symbol, "name": prof.get("companyName", symbol),
+        #                    "reason": f"Z-score {result['ZScore']} below 2.99"}
             if compute_f:
                 cf = None
                 conn = get_conn()
@@ -474,9 +474,9 @@ def pull_company(symbol: str, annual: bool = False, include_goodwill: bool = Fal
                 else:
                     cf = fmp_cashflow(symbol, annual, api_key=api_key)
                 result["FScore"] = _compute_f_score(inc, bal, cf)
-                if result["FScore"] is None or result["FScore"] < 3:
-                    return {"type": "skip", "ticker": symbol, "name": prof.get("companyName", symbol),
-                            "reason": f"F-score {result['FScore']} below 3"}
+        #       if result["FScore"] is None or result["FScore"] < 3:
+        #            return {"type": "skip", "ticker": symbol, "name": prof.get("companyName", symbol),
+        #                    "reason": f"F-score {result['FScore']} below 3"}
 
         if result is None:
             return None
