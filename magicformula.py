@@ -176,7 +176,7 @@ def fmp_profile(ticker: str, api_key: str = None) -> Dict[str, Any]:
 
 def fmp_income(ticker: str, annual: bool = False, api_key: str = None) -> List[Dict[str, Any]]:
     if annual:
-        return fmp_get(f"/income-statement/{ticker}", {"period": "annual", "limit": 1}, api_key=api_key) or []
+        return fmp_get(f"/income-statement/{ticker}", {"period": "annual", "limit": 2}, api_key=api_key) or []
     return fmp_get(f"/income-statement/{ticker}", {"period": "quarter", "limit": 4}, api_key=api_key) or []
 
 def fmp_balance(ticker: str, api_key: str = None) -> List[Dict[str, Any]]:
@@ -554,6 +554,8 @@ def _init_db():
             ROC REAL,
             Goodwill REAL,
             Intangibles REAL,
+            ZScore REAL,
+            FScore INTEGER,
             last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (ticker, period)
         )
@@ -578,6 +580,11 @@ def _init_db():
         VALUES ('deepscan_paused', '0')
     """)
     conn.commit()
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(company_cache)")}
+    for col, typedef in [("ZScore", "REAL"), ("FScore", "INTEGER")]:
+        if col not in existing:
+            conn.execute(f"ALTER TABLE company_cache ADD COLUMN {col} {typedef}")
+    conn.commit()
     conn.close()
 
 # Initialize database on module load
@@ -592,9 +599,10 @@ def db_upsert(record: Dict[str, Any], period: str) -> None:
     conn.execute("""
         INSERT INTO company_cache (
             ticker, period, name, exchange, country, sector, industry,
-            marketCap, EV, EBIT, NWC, PPE_Net, Capital, Cash, TotalDebt, EY, ROC, Goodwill, Intangibles, 
+            marketCap, EV, EBIT, NWC, PPE_Net, Capital, Cash, TotalDebt, EY, ROC, Goodwill, Intangibles,
+            ZScore, FScore,
             last_updated
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(ticker, period) DO UPDATE SET
             name = excluded.name,
             exchange = excluded.exchange,
@@ -613,6 +621,8 @@ def db_upsert(record: Dict[str, Any], period: str) -> None:
             ROC = excluded.ROC,
             Goodwill = excluded.Goodwill,
             Intangibles = excluded.Intangibles,
+            ZScore = excluded.ZScore,
+            FScore = excluded.FScore,
             last_updated = CURRENT_TIMESTAMP
     """, (
         record.get("ticker"),
@@ -634,6 +644,8 @@ def db_upsert(record: Dict[str, Any], period: str) -> None:
         record.get("ROC"),
         record.get("Goodwill"),
         record.get("Intangibles"),
+        record.get("ZScore"),
+        record.get("FScore"),
     ))
     conn.commit()
     conn.close()
@@ -670,6 +682,8 @@ def db_fetch(ticker: str, period: str, max_age_days: int = 7) -> Optional[Dict[s
             "TotalDebt": row["TotalDebt"],
             "EY": row["EY"],
             "ROC": row["ROC"],
+            "ZScore": row["ZScore"],
+            "FScore": row["FScore"],
         }
     return None
 
@@ -730,10 +744,10 @@ def main():
     ap.add_argument("--ex", "--exchanges", dest="exchanges", type=str, default="NASDAQ,NYSE,AMEX",
                     help="Comma‑separated FMP exchange codes (e.g., NASDAQ,NYSE,LSE)")
     ap.add_argument("--min-mcap", type=float, default=50e6, help="Minimum market cap USD")
-    ap.add_argument("--limit", type=int, default=400, help="Max symbols to process (free‑tier friendly)")
+    ap.add_argument("--limit", type=int, default=400, help="Max symbols to process (free‑tier friendly); web UI defaults to 4000 to cover the full NASDAQ+NYSE+AMEX universe")
     ap.add_argument("--sleep", type=float, default=0.2, help="Delay between API calls to respect rate limits")
     ap.add_argument("--top", type=int, default=30, help="How many top results to export")
-    ap.add_argument("--random", action="store_true", help="Shuffle symbols before limiting (for random sampling)")
+    ap.add_argument("--no-random", action="store_true", default=False, help="Disable symbol shuffling (default: shuffle, matching web UI)")
     ap.add_argument("--countries", type=str, default=None,
                 help="Comma-separated country codes (e.g., US,CA,GB). Default: US")
     ap.add_argument("--tier1", action="store_true",
@@ -758,7 +772,7 @@ def main():
     elif args.countries:
         countries = [c.strip() for c in args.countries.split(',')]
     else:
-        countries = None  # All countries on US exchanges
+        countries = ["US"]  # matches web UI default; use --countries or --tier1 to override
 
  
     exchanges = [x.strip() for x in args.exchanges.split(',') if x.strip()]
@@ -776,7 +790,8 @@ def main():
     # Dedup (filtering already done in list_symbols)
     symbols = list(dict.fromkeys(symbols))
 
-    if args.random:
+    use_random = not args.no_random
+    if use_random:
         print(f"Randomizing {len(symbols)} symbols before sampling...")
         random.shuffle(symbols)
 

@@ -328,10 +328,7 @@ def ticker_lookup(symbol):
         if not isinstance(bal_list, list): bal_list = [bal_list]
         if not isinstance(inc_list, list): inc_list = [inc_list]
         if not isinstance(cf_list, list): cf_list = [cf_list]
-        z_score = mf._compute_z_score(profile if isinstance(profile, dict) else {}, inc_list, bal_list)
-        print(f"DEBUG after z_score={z_score}")
         f_score = mf._compute_f_score(inc_list, bal_list, cf_list)
-        z_score = mf._compute_z_score(profile if isinstance(profile, dict) else {}, inc_list, bal_list)
         z_score = mf._compute_z_score(profile if isinstance(profile, dict) else {}, inc_list, bal_list)
     except Exception as e:
         print(f"[ticker_lookup] F/Z score error: {e}")
@@ -436,10 +433,10 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
         exchanges_raw = params.get("exchanges", "NASDAQ,NYSE,AMEX")
         exchanges_list = [x.strip() for x in exchanges_raw.split(",") if x.strip()]
         min_mcap = float(params.get("min_mcap", 50_000_000))
-        limit = int(params.get("limit", 4000))
+        limit = int(params.get("limit", 4000))  # covers full NASDAQ+NYSE+AMEX universe; CLI default is 400 (free-tier/quick-run sizing)
         top_n = int(params.get("top_n", 30))
         use_random = params.get("use_random", True)
-        use_annual = params.get("use_annual", True)
+        use_annual = params.get("use_annual", False)
         check_debt_revenue = params.get("check_debt_revenue", False)
         check_cashflow = params.get("check_cashflow", False)
         include_goodwill = params.get("include_goodwill", False)
@@ -523,7 +520,8 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
                         skip_reasons[rec.get("reason", "Unknown")] += 1
                     else:
                         skipped += 1  # returned None — missing/incomplete data
-                except Exception:
+                except Exception as e:
+                    print(f"[_run_scan] {sym}: {type(e).__name__}: {e}", flush=True)
                     skipped += 1
 
                 _push(q, {
