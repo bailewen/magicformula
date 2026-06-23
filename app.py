@@ -520,6 +520,9 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
                         skip_reasons[rec.get("reason", "Unknown")] += 1
                     else:
                         skipped += 1  # returned None — missing/incomplete data
+                except TimeoutError:
+                    print(f"[_run_scan] {sym}: timeout (worker exceeded 5s)", flush=True)
+                    skipped += 1
                 except Exception as e:
                     print(f"[_run_scan] {sym}: {type(e).__name__}: {e}", flush=True)
                     skipped += 1
