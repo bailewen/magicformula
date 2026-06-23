@@ -546,8 +546,6 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
             _finalize(scan_id, error="No qualifying stocks found.")
             return
 
-        _push(q, {"type": "done", "count": len(results), "total_analyzed": len(records), "summary": summary,
-                  "skip_reasons": dict(skip_reasons.most_common(10))})
         # ── Step 3: Rank ───────────────────────────────────────────────────
         df = pd.DataFrame(records)
         ranked = mf.magic_formula_rank(df)
