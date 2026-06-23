@@ -224,7 +224,8 @@ def check_financial_health(symbol: str,
                 results["debt_revenue_check"] = de_decreasing and rev_increasing
             else:
                 results["debt_revenue_check"] = None  # Insufficient data
-        except Exception:
+        except Exception as e:
+            print(f"[check_financial_health] {symbol} debt/revenue check: {type(e).__name__}: {e}", flush=True)
             results["debt_revenue_check"] = None
         
         if results.get("debt_revenue_check") is False:
@@ -244,7 +245,8 @@ def check_financial_health(symbol: str,
                 results["cashflow_quality_check"] = ocf_beats_ni
             else:
                 results["cashflow_quality_check"] = None
-        except Exception:
+        except Exception as e:
+            print(f"[check_financial_health] {symbol} cashflow check: {type(e).__name__}: {e}", flush=True)
             results["cashflow_quality_check"] = None
         
         if results.get("cashflow_quality_check") is False:
@@ -387,7 +389,8 @@ def _compute_z_score(prof: dict, inc: list, bal: list) -> Optional[float]:
         x4 = mcap / tl
         x5 = rev / ta
         return round(1.2*x1 + 1.4*x2 + 3.3*x3 + 0.6*x4 + 1.0*x5, 3)
-    except Exception:
+    except Exception as e:
+        print(f"[_compute_z_score] {type(e).__name__}: {e}", flush=True)
         return None
 
 
@@ -439,7 +442,8 @@ def _compute_f_score(inc: list, bal: list, cf: list) -> Optional[int]:
         f9 = int(at0 > at1)
 
         return f1+f2+f3+f4+f5+f6+f7+f8+f9
-    except Exception:
+    except Exception as e:
+        print(f"[_compute_f_score] {type(e).__name__}: {e}", flush=True)
         return None
 
 def pull_company(symbol: str, annual: bool = False, include_goodwill: bool = False,
@@ -755,8 +759,16 @@ def main():
     ap.add_argument("--out", type=str, default=default_name, help="Output CSV path")
     ap.add_argument("--annual", action="store_true",
                 help="Use annual data instead of TTM quarterly")
+    ap.add_argument("--check-debt-revenue", action="store_true",
+                    help="Health check: require D/E trending down and revenue trending up")
+    ap.add_argument("--check-cashflow", action="store_true",
+                    help="Health check: require OCF > net income for consecutive quarters")
     ap.add_argument("--health-checks", action="store_true",
-                    help="Run D/E and cash flow health checks on top candidates")
+                    help="Shortcut: enable both --check-debt-revenue and --check-cashflow")
+    ap.add_argument("--debt-revenue-quarters", type=int, default=6,
+                    help="Quarters of history for D/E + revenue trend check (default: 6)")
+    ap.add_argument("--cashflow-quarters", type=int, default=8,
+                    help="Quarters of history for OCF > net income check (default: 8)")
     ap.add_argument("--goodwill", action="store_true", dest="include_goodwill",
                     help="Include goodwill in capital calculation")
     ap.add_argument("--intangibles", action="store_true", dest="include_intangibles",
@@ -819,8 +831,10 @@ def main():
                                 "name": rec.get("name", ""),
                                 "reason": rec.get("reason", "Unknown")
                             })
-                except Exception:
-                    pass
+                except TimeoutError:
+                    print(f"[main] {futures[future]}: timeout (worker exceeded 5s)", flush=True)
+                except Exception as e:
+                    print(f"[main] {futures[future]}: {type(e).__name__}: {e}", flush=True)
     finally:
         _set_deepscan_pause(False)
 
@@ -832,19 +846,23 @@ def main():
     ranked = magic_formula_rank(df)
 
     # Apply health checks only to top candidates
-    if args.health_checks:
+    check_debt_revenue = args.check_debt_revenue or args.health_checks
+    check_cashflow = args.check_cashflow or args.health_checks
+    if check_debt_revenue or check_cashflow:
         top_candidates = ranked.head(args.top)
         healthy_tickers = []
-        
+
         for ticker in tqdm(top_candidates["ticker"], desc="Running health checks"):
             health = check_financial_health(
                 ticker,
-                check_debt_revenue=True,
-                check_cashflow_quality=True
+                check_debt_revenue=check_debt_revenue,
+                check_cashflow_quality=check_cashflow,
+                debt_revenue_quarters=args.debt_revenue_quarters,
+                cashflow_quarters=args.cashflow_quarters,
             )
             if health["passes_all"]:
                 healthy_tickers.append(ticker)
-        
+
         ranked = ranked[ranked["ticker"].isin(healthy_tickers)]
         print(f"Health checks: {len(healthy_tickers)}/{len(top_candidates)} passed")
 

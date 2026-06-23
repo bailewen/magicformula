@@ -439,6 +439,8 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
         use_annual = params.get("use_annual", False)
         check_debt_revenue = params.get("check_debt_revenue", False)
         check_cashflow = params.get("check_cashflow", False)
+        debt_revenue_quarters = int(params.get("debt_revenue_quarters", 6))
+        cashflow_quarters = int(params.get("cashflow_quarters", 8))
         include_goodwill = params.get("include_goodwill", False)
         include_intangibles = params.get("include_intangibles", False)
         compute_z = params.get("compute_z", False)
@@ -564,6 +566,8 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
                     ticker,
                     check_debt_revenue=check_debt_revenue,
                     check_cashflow_quality=check_cashflow,
+                    debt_revenue_quarters=debt_revenue_quarters,
+                    cashflow_quarters=cashflow_quarters,
                     api_key=api_key
                 )
                 if health["passes_all"]:
