@@ -21,6 +21,9 @@ if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 import magicformula as mf
+import portfolio as pf
+
+pf.init_schema()
 
 app = Flask(__name__)
 
@@ -381,6 +384,204 @@ def ticker_refresh(symbol):
     conn.commit()
     conn.close()
     return jsonify({"status": "ok", "updated": ok})
+
+# ── Portfolio routes ──────────────────────────────────────────────────────────
+
+@app.route("/portfolios", methods=["GET", "POST"])
+def portfolios_route():
+    if request.method == "GET":
+        rows = pf.list_portfolios()
+        return jsonify([dict(r) for r in rows])
+
+    # POST — create portfolio, optional CSV bootstrap
+    name = (request.form.get("name") or "").strip()
+    if not name:
+        body = request.get_json(silent=True) or {}
+        name = body.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "Portfolio name is required"}), 400
+
+    portfolio_id = pf.create_portfolio(name)
+
+    imported = 0
+    skipped = []
+    csv_file = request.files.get("csv")
+    if csv_file and csv_file.filename:
+        imported, skipped = pf.import_merrill_csv(portfolio_id, csv_file.stream)
+        if imported:
+            tickers = list({pos["ticker"] for pos in pf.list_positions(portfolio_id)})
+            live = _fetch_portfolio_prices(tickers, force=True)
+            pf.record_snapshot(portfolio_id, prices=live["prices"])
+
+    return jsonify({
+        "id": portfolio_id,
+        "name": name,
+        "imported": imported,
+        "skipped": [{"symbol": s[0], "reason": s[1]} for s in skipped],
+    })
+
+
+@app.route("/portfolio/<int:portfolio_id>")
+def portfolio_detail_route(portfolio_id):
+    p = pf.get_portfolio(portfolio_id)
+    if not p:
+        return jsonify({"error": "Portfolio not found"}), 404
+    positions = pf.list_positions(portfolio_id)
+    return jsonify({
+        "portfolio": dict(p),
+        "positions": [dict(pos) for pos in positions],
+    })
+
+
+@app.route("/portfolio/<int:portfolio_id>/position", methods=["POST"])
+def add_position_route(portfolio_id):
+    data = request.get_json(force=True)
+    ticker = (data.get("ticker") or "").strip().upper()
+    if not ticker:
+        return jsonify({"error": "Ticker required"}), 400
+    try:
+        shares = float(data["shares"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "Valid shares value required"}), 400
+    cost_basis = data.get("cost_basis")
+    if cost_basis is not None:
+        try:
+            cost_basis = float(cost_basis)
+        except (TypeError, ValueError):
+            cost_basis = None
+    acquired_date = data.get("acquired_date") or None
+    pos_id = pf.add_position(portfolio_id, ticker, shares, cost_basis, acquired_date)
+    return jsonify({
+        "id": pos_id,
+        "portfolio_id": portfolio_id,
+        "ticker": ticker,
+        "shares": shares,
+        "cost_basis": cost_basis,
+        "acquired_date": acquired_date,
+    })
+
+
+@app.route("/position/<int:position_id>", methods=["POST"])
+def update_position_route(position_id):
+    data = request.get_json(force=True)
+    shares = data.get("shares")
+    cost_basis = data.get("cost_basis")
+    acquired_date = data.get("acquired_date") or None
+    if shares is not None:
+        shares = float(shares)
+    if cost_basis is not None:
+        cost_basis = float(cost_basis)
+    pf.update_position(position_id, shares=shares, cost_basis=cost_basis, acquired_date=acquired_date)
+    return jsonify({"status": "ok"})
+
+
+@app.route("/position/<int:position_id>/delete", methods=["POST"])
+def delete_position_route(position_id):
+    pf.delete_position(position_id)
+    return jsonify({"status": "ok"})
+
+
+@app.route("/portfolio/<int:portfolio_id>/delete", methods=["POST"])
+def delete_portfolio_route(portfolio_id):
+    pf.delete_portfolio(portfolio_id)
+    return jsonify({"status": "ok"})
+
+
+@app.route("/portfolio/<int:portfolio_id>/prices")
+def portfolio_prices_route(portfolio_id):
+    p = pf.get_portfolio(portfolio_id)
+    if not p:
+        return jsonify({"error": "Portfolio not found"}), 404
+    positions = pf.list_positions(portfolio_id)
+    tickers = list({pos["ticker"] for pos in positions})
+    return jsonify(_fetch_portfolio_prices(tickers, force=False))
+
+
+@app.route("/portfolio/<int:portfolio_id>/prices/refresh", methods=["POST"])
+def portfolio_prices_refresh_route(portfolio_id):
+    p = pf.get_portfolio(portfolio_id)
+    if not p:
+        return jsonify({"error": "Portfolio not found"}), 404
+    positions = pf.list_positions(portfolio_id)
+    tickers = list({pos["ticker"] for pos in positions})
+    result = _fetch_portfolio_prices(tickers, force=True)
+    pf.record_snapshot(portfolio_id, prices=result["prices"])
+    return jsonify(result)
+
+
+def _fetch_portfolio_prices(tickers, force=False):
+    """Vault-first price fetch for a list of tickers.
+
+    Returns {"prices": {TICKER: {"price": float, "last_updated": str}},
+             "oldest_timestamp": str | None}.
+    force=True bypasses the vault and fetches all from FMP.
+    """
+    if not tickers:
+        return {"prices": {}, "oldest_timestamp": None}
+
+    prices = {}
+    to_fetch = []
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+    conn = mf.get_conn()
+    try:
+        if not force:
+            placeholders = ",".join("?" * len(tickers))
+            rows = conn.execute(
+                f"SELECT ticker, json_blob, last_updated FROM raw_json_vault"
+                f" WHERE ticker IN ({placeholders}) AND endpoint = 'quote'",
+                tickers,
+            ).fetchall()
+            vault_map = {r["ticker"]: r for r in rows}
+            for ticker in tickers:
+                row = vault_map.get(ticker)
+                if row:
+                    try:
+                        blob = json.loads(row["json_blob"])
+                        quote = blob[0] if isinstance(blob, list) and blob else (blob if isinstance(blob, dict) else {})
+                        price = quote.get("price")
+                        if price is not None:
+                            prices[ticker] = {"price": float(price), "last_updated": row["last_updated"]}
+                            continue
+                    except Exception:
+                        pass
+                to_fetch.append(ticker)
+        else:
+            to_fetch = list(tickers)
+
+        if to_fetch:
+            api_key = os.getenv("FMP_API_KEY", "")
+            if api_key:
+                try:
+                    data = mf.fmp_get(f"/quote/{','.join(to_fetch)}", api_key=api_key)
+                    if data and isinstance(data, list):
+                        for quote in data:
+                            ticker = (quote.get("symbol") or "").upper()
+                            price = quote.get("price")
+                            if ticker and price is not None:
+                                prices[ticker] = {"price": float(price), "last_updated": now_str}
+                                conn.execute(
+                                    """INSERT INTO raw_json_vault (ticker, endpoint, json_blob)
+                                       VALUES (?, ?, ?)
+                                       ON CONFLICT(ticker, endpoint) DO UPDATE SET
+                                           json_blob = excluded.json_blob,
+                                           last_updated = CURRENT_TIMESTAMP""",
+                                    (ticker, "quote", json.dumps([quote])),
+                                )
+                        conn.commit()
+                except Exception as e:
+                    print(f"[portfolio_prices] batch quote error: {e}")
+    finally:
+        conn.close()
+
+    oldest = None
+    for pd in prices.values():
+        ts = pd.get("last_updated")
+        if ts and (oldest is None or ts < oldest):
+            oldest = ts
+
+    return {"prices": prices, "oldest_timestamp": oldest}
+
 
 # ── Background scan logic ──────────────────────────────────────────────────────
 

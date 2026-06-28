@@ -14,6 +14,8 @@ inherited from there).
 
 import csv
 import io
+import json
+import os
 import re
 
 import magicformula as mf
@@ -237,6 +239,20 @@ def init_schema():
             CREATE INDEX IF NOT EXISTS idx_positions_portfolio_id
             ON positions(portfolio_id)
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+                id INTEGER PRIMARY KEY,
+                portfolio_id INTEGER NOT NULL REFERENCES portfolios(id),
+                snapshot_date DATE NOT NULL,
+                total_value REAL,
+                total_cost_basis REAL,
+                spy_price REAL,
+                qqq_price REAL,
+                dia_price REAL,
+                iwm_price REAL,
+                UNIQUE(portfolio_id, snapshot_date)
+            )
+        """)
         conn.commit()
     finally:
         conn.close()
@@ -415,5 +431,143 @@ def delete_position(position_id):
     try:
         conn.execute("DELETE FROM positions WHERE id = ?", (position_id,))
         conn.commit()
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Portfolio snapshots
+# ---------------------------------------------------------------------------
+
+_BENCHMARKS = ["SPY", "QQQ", "DIA", "IWM"]
+
+
+def _fetch_benchmark_prices():
+    """Return {ticker: float} for SPY/QQQ/DIA/IWM, vault-first, FMP fallback.
+
+    A failed fetch for any benchmark stores nothing for that ticker so the
+    caller gets None rather than raising.
+    """
+    result = {}
+    conn = mf.get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT ticker, json_blob FROM raw_json_vault"
+            " WHERE ticker IN (?,?,?,?) AND endpoint = 'quote'",
+            _BENCHMARKS,
+        ).fetchall()
+        for row in rows:
+            try:
+                blob = json.loads(row["json_blob"])
+                q = blob[0] if isinstance(blob, list) and blob else (blob if isinstance(blob, dict) else {})
+                p = q.get("price")
+                if p is not None:
+                    result[row["ticker"]] = float(p)
+            except Exception:
+                pass
+
+        missing = [t for t in _BENCHMARKS if t not in result]
+        if missing:
+            api_key = os.getenv("FMP_API_KEY", "")
+            if api_key:
+                try:
+                    data = mf.fmp_get(f"/quote/{','.join(missing)}", api_key=api_key)
+                    if data and isinstance(data, list):
+                        for q in data:
+                            ticker = (q.get("symbol") or "").upper()
+                            price = q.get("price")
+                            if ticker in _BENCHMARKS and price is not None:
+                                result[ticker] = float(price)
+                                conn.execute(
+                                    """INSERT INTO raw_json_vault (ticker, endpoint, json_blob)
+                                       VALUES (?, ?, ?)
+                                       ON CONFLICT(ticker, endpoint) DO UPDATE SET
+                                           json_blob = excluded.json_blob,
+                                           last_updated = CURRENT_TIMESTAMP""",
+                                    (ticker, "quote", json.dumps([q])),
+                                )
+                        conn.commit()
+                except Exception as e:
+                    print(f"[record_snapshot] benchmark fetch error: {e}")
+    finally:
+        conn.close()
+    return result
+
+
+def record_snapshot(portfolio_id, prices=None):
+    """Compute and upsert today's portfolio snapshot.
+
+    prices: {TICKER: {"price": float, ...}} from _fetch_portfolio_prices, or
+    a plain {TICKER: float} mapping. Pass None if no current prices are
+    available — total_value will be stored as None.
+
+    Benchmark prices (SPY/QQQ/DIA/IWM) are fetched here, vault-first with an
+    FMP fallback. A missing benchmark stores NULL for that column rather than
+    aborting the whole snapshot.
+    """
+    positions = list_positions(portfolio_id)
+
+    total_cost_basis = None
+    for pos in positions:
+        if pos["cost_basis"] is not None:
+            if total_cost_basis is None:
+                total_cost_basis = 0.0
+            total_cost_basis += pos["cost_basis"] * pos["shares"]
+
+    total_value = None
+    if prices is not None:
+        running = 0.0
+        for pos in positions:
+            info = prices.get(pos["ticker"])
+            if info is None:
+                running = None
+                break
+            price_val = info["price"] if isinstance(info, dict) else float(info)
+            running += price_val * pos["shares"]
+        total_value = running
+
+    benchmarks = _fetch_benchmark_prices()
+
+    conn = mf.get_conn()
+    try:
+        conn.execute(
+            """
+            INSERT INTO portfolio_snapshots
+                (portfolio_id, snapshot_date, total_value, total_cost_basis,
+                 spy_price, qqq_price, dia_price, iwm_price)
+            VALUES (?, CURRENT_DATE, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(portfolio_id, snapshot_date) DO UPDATE SET
+                total_value      = excluded.total_value,
+                total_cost_basis = excluded.total_cost_basis,
+                spy_price        = excluded.spy_price,
+                qqq_price        = excluded.qqq_price,
+                dia_price        = excluded.dia_price,
+                iwm_price        = excluded.iwm_price
+            """,
+            (
+                portfolio_id,
+                total_value,
+                total_cost_basis,
+                benchmarks.get("SPY"),
+                benchmarks.get("QQQ"),
+                benchmarks.get("DIA"),
+                benchmarks.get("IWM"),
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_snapshots(portfolio_id):
+    """Return all snapshots for a portfolio ordered by snapshot_date ascending."""
+    conn = mf.get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM portfolio_snapshots"
+            " WHERE portfolio_id = ? ORDER BY snapshot_date ASC",
+            (portfolio_id,),
+        ).fetchall()
+        return rows
     finally:
         conn.close()

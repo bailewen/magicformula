@@ -78,6 +78,19 @@ def main():
             cb = f"{p['cost_basis']:.4f}" if p["cost_basis"] is not None else "None"
             print(f"    {p['id']:>4}  {p['ticker']:8} {p['shares']:>8.0f} {cb:>10}")
 
+        # ---- 4b. snapshots (record + upsert) --------------------------------
+        mock_prices = {p["ticker"]: {"price": 100.0} for p in positions}
+        portfolio.record_snapshot(pid, prices=mock_prices if mock_prices else None)
+        snaps = portfolio.get_snapshots(pid)
+        assert len(snaps) == 1, f"expected 1 snapshot, got {len(snaps)}"
+        assert snaps[0]["portfolio_id"] == pid
+        first_val = snaps[0]["total_value"]
+        # second call must upsert, not insert a duplicate
+        portfolio.record_snapshot(pid, prices=mock_prices if mock_prices else None)
+        snaps2 = portfolio.get_snapshots(pid)
+        assert len(snaps2) == 1, "second record_snapshot should upsert, not insert"
+        print(f"[4b] snapshot ok — total_value={first_val}, spy={snaps[0]['spy_price']}, qqq={snaps[0]['qqq_price']}")
+
         # ---- 5. manual add (paper-portfolio style) ------------------------
         new_id = portfolio.add_position(pid, "nvda", 10, cost_basis=120.50)
         print(f"\n[5] manually added NVDA (lowercase -> upper), id={new_id}")
