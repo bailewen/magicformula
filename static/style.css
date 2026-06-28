@@ -711,3 +711,357 @@ tr.desc-row td {
   color: var(--text-2, #888);
   font-style: italic;
 }
+
+/* ── Portfolio Tab ────────────────────────────────────────────────────────── */
+
+.pf-section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pf-section-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 12px 0;
+}
+
+.pf-loading,
+.pf-empty {
+  color: var(--text-muted);
+  padding: 20px 0;
+  font-size: 0.9rem;
+}
+
+.pf-list-table {
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.pf-date {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.pf-row-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.pf-view-btn {
+  padding: 4px 12px;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent, #58a6ff);
+  background: none;
+  border: 1px solid var(--accent, #58a6ff);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.pf-view-btn:hover { background: rgba(88,166,255,0.1); }
+
+.pf-del-btn,
+.pf-delete-btn {
+  padding: 4px 12px;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  color: #e57373;
+  background: none;
+  border: 1px solid #e57373;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.pf-del-btn:hover,
+.pf-delete-btn:hover { background: rgba(229,115,115,0.1); }
+
+.pf-create-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-top: 16px;
+}
+
+.pf-create-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 14px 0;
+}
+
+.pf-form-row {
+  margin-bottom: 12px;
+}
+
+.pf-optional {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.pf-file-input {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--text);
+}
+
+.pf-create-btn {
+  margin-top: 4px;
+}
+
+.pf-import-summary {
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.pf-skip-list {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.pf-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.pf-detail-header .pf-section-title {
+  flex: 1;
+  margin: 0;
+}
+
+.pf-back-btn {
+  padding: 5px 12px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pf-back-btn:hover { background: var(--bg-3); }
+
+#pf-perf-chart {
+  margin: 16px 0 8px;
+}
+.pf-chart-empty {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  padding: 12px 0 20px;
+}
+
+.pf-positions-meta {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.pf-positions-table {
+  width: 100%;
+}
+
+.pf-pos-del-btn {
+  padding: 2px 8px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 700;
+  color: #e57373;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  line-height: 1;
+}
+.pf-pos-del-btn:hover {
+  border-color: #e57373;
+  background: rgba(229,115,115,0.1);
+}
+
+.pf-add-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.pf-add-ticker  { width: 90px;  flex-shrink: 0; }
+.pf-add-shares  { width: 100px; flex-shrink: 0; }
+.pf-add-cost    { width: 160px; flex-shrink: 0; }
+.pf-add-btn     { flex-shrink: 0; }
+
+/* ── Portfolio delete confirm modal ──────────────────────────────────────── */
+
+.pf-confirm-container {
+  max-width: 440px;
+  text-align: center;
+  padding: 36px 32px 28px;
+}
+
+.pf-confirm-icon {
+  font-size: 40px;
+  color: #e57373;
+  margin-bottom: 12px;
+}
+
+.pf-confirm-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 10px 0;
+}
+
+.pf-confirm-body {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin: 0 0 20px 0;
+}
+
+.pf-confirm-body strong {
+  color: var(--text);
+}
+
+.pf-confirm-label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+.pf-confirm-keyword {
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  color: #e57373;
+  letter-spacing: 0.04em;
+}
+
+.pf-confirm-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.08em;
+  margin-bottom: 20px;
+}
+
+.pf-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.pf-confirm-delete-btn {
+  padding: 8px 20px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: #c62828;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pf-confirm-delete-btn:not(:disabled):hover {
+  background: #e53935;
+}
+
+.pf-confirm-delete-btn:disabled {
+  background: var(--bg-3);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+/* ── Portfolio live pricing ───────────────────────────────────────────────── */
+
+.pf-detail-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.pf-refresh-btn {
+  padding: 5px 12px;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pf-refresh-btn:hover:not(:disabled) { background: var(--bg-3); color: var(--text); }
+.pf-refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.pf-summary-bar {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 0 4px;
+  font-size: 0.95rem;
+}
+
+.pf-summary-val {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.pf-summary-sep { color: var(--text-muted); }
+
+.pf-summary-cost { color: var(--text-muted); font-size: 0.88rem; }
+
+.pf-summary-unpriced {
+  color: #e9c46a;
+  font-size: 0.82rem;
+}
+
+.pf-staleness {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding-bottom: 12px;
+}
+
+.pf-stale-refresh-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font);
+  font-size: inherit;
+  color: var(--accent, #58a6ff);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.pf-stale-refresh-link:hover { color: var(--text); }
+
+.pf-price-cell,
+.pf-value-cell {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}

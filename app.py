@@ -487,6 +487,15 @@ def delete_portfolio_route(portfolio_id):
     return jsonify({"status": "ok"})
 
 
+@app.route("/portfolio/<int:portfolio_id>/performance")
+def portfolio_performance_route(portfolio_id):
+    p = pf.get_portfolio(portfolio_id)
+    if not p:
+        return jsonify({"error": "Portfolio not found"}), 404
+    snaps = pf.get_snapshots(portfolio_id)
+    return jsonify([dict(s) for s in snaps])
+
+
 @app.route("/portfolio/<int:portfolio_id>/prices")
 def portfolio_prices_route(portfolio_id):
     p = pf.get_portfolio(portfolio_id)

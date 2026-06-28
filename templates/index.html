@@ -156,6 +156,7 @@
  <div class="tab-bar">
     <button class="tab active" data-tab="screener">Screener</button>
     <button class="tab" data-tab="ticker">Single Ticker</button>
+    <button class="tab" data-tab="portfolio">Portfolio</button>
   </div>
 
   <div id="tab-screener">
@@ -294,10 +295,100 @@
   </div><!-- end ticker-result -->
 </div><!-- end tab-ticker -->
 
+<!-- ── Portfolio Tab ──────────────────────────────────────────────────────── -->
+<div id="tab-portfolio" class="hidden">
+
+  <!-- List sub-view -->
+  <div id="pf-list">
+    <div class="pf-section-header">
+      <h2 class="pf-section-title">Portfolios</h2>
+    </div>
+    <div id="pf-list-content"></div>
+
+    <div class="pf-create-card">
+      <h3 class="pf-create-title">Create New Portfolio</h3>
+      <form id="pf-create-form" enctype="multipart/form-data">
+        <div class="pf-form-row">
+          <label class="field-label" for="pf-name">Name</label>
+          <input type="text" id="pf-name" class="input" placeholder="My Portfolio" required>
+        </div>
+        <div class="pf-form-row">
+          <label class="field-label" for="pf-csv">Import Merrill CSV <span class="pf-optional">(optional)</span></label>
+          <input type="file" id="pf-csv" accept=".csv" class="pf-file-input">
+        </div>
+        <button type="submit" class="run-btn pf-create-btn">Create Portfolio</button>
+      </form>
+      <div id="pf-import-summary" class="hidden pf-import-summary"></div>
+    </div>
+  </div>
+
+  <!-- Detail sub-view -->
+  <div id="pf-detail" class="hidden">
+    <div class="pf-detail-header">
+      <button id="pf-back-btn" class="pf-back-btn">← All Portfolios</button>
+      <h2 id="pf-detail-name" class="pf-section-title"></h2>
+      <div class="pf-detail-actions">
+        <button id="pf-refresh-prices-btn" class="pf-refresh-btn">↻ Refresh Prices</button>
+        <button id="pf-delete-portfolio-btn" class="pf-delete-btn">Delete Portfolio</button>
+      </div>
+    </div>
+    <div id="pf-portfolio-summary"></div>
+
+    <div id="pf-perf-chart"></div>
+
+    <div id="pf-positions-wrap"></div>
+
+    <div class="pf-create-card">
+      <h3 class="pf-create-title">Add Position</h3>
+      <form id="pf-add-form">
+        <div class="pf-add-row">
+          <input type="text" id="pf-pos-ticker" class="input pf-add-ticker" placeholder="Ticker" maxlength="10" required>
+          <input type="number" id="pf-pos-shares" class="input pf-add-shares" placeholder="Shares" min="1" step="1" required>
+          <input type="number" id="pf-pos-cost" class="input pf-add-cost" placeholder="Cost/share (optional)" min="0" step="0.01">
+          <button type="submit" class="run-btn pf-add-btn">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div><!-- end tab-portfolio -->
+
 <div id="ticker-modal" class="modal-overlay hidden">
   <div class="modal-container">
     <button id="modal-close" class="modal-close">✕</button>
     <div id="modal-content"></div>
+  </div>
+</div>
+
+<div id="pf-confirm-modal" class="modal-overlay hidden">
+  <div class="modal-container pf-confirm-container">
+    <div class="pf-confirm-icon">⚠</div>
+    <h3 class="pf-confirm-title">Delete Portfolio</h3>
+    <p class="pf-confirm-body">
+      This will permanently and unrecoverably delete
+      <strong id="pf-confirm-name"></strong>
+      and all of its positions. There is no undo.
+    </p>
+    <label class="pf-confirm-label" for="pf-confirm-input">
+      Type <span class="pf-confirm-keyword">DELETE</span> to confirm (case sensitive)
+    </label>
+    <input type="text" id="pf-confirm-input" class="input pf-confirm-input" autocomplete="off" spellcheck="false" placeholder="DELETE">
+    <div class="pf-confirm-actions">
+      <button id="pf-confirm-cancel" class="pf-back-btn">Cancel</button>
+      <button id="pf-confirm-delete" class="pf-confirm-delete-btn" disabled>Delete Portfolio</button>
+    </div>
+  </div>
+</div>
+
+<div id="pf-pos-confirm-modal" class="modal-overlay hidden">
+  <div class="modal-container pf-confirm-container">
+    <div class="pf-confirm-icon">⚠</div>
+    <h3 class="pf-confirm-title">Warning!</h3>
+    <p class="pf-confirm-body">Deletions are not recoverable. Delete this position?</p>
+    <div class="pf-confirm-actions">
+      <button id="pf-pos-confirm-cancel" class="pf-back-btn">Cancel</button>
+      <button id="pf-pos-confirm-ok" class="pf-confirm-delete-btn">OK</button>
+    </div>
   </div>
 </div>
 
@@ -777,8 +868,10 @@ function switchTab(tabName) {
   document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
   document.getElementById('tab-screener').classList.add('hidden');
   document.getElementById('tab-ticker').classList.add('hidden');
+  document.getElementById('tab-portfolio').classList.add('hidden');
   document.getElementById(`tab-${tabName}`).classList.remove('hidden');
   localStorage.setItem('activeTab', tabName);
+  if (tabName === 'portfolio') pfLoadList();
 }
 
 document.querySelectorAll('.tab').forEach(tab => {
@@ -1199,6 +1292,410 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
     if (savedTab === 'ticker') lookupTicker();
   }
 
+  </script>
+
+  <script>
+  // ── Portfolio ──────────────────────────────────────────────────────────────
+
+  let pfCurrentId = null;
+  let pfCurrentName = "";
+  let pfCurrentPosData = null;
+
+  function pfFmt(val, type) {
+    if (val === null || val === undefined) return "—";
+    if (type === "shares") return Number(val).toLocaleString();
+    if (type === "money") return "$" + parseFloat(val).toFixed(2);
+    if (type === "total") return "$" + (parseFloat(val[0]) * parseFloat(val[1])).toFixed(2);
+    return val;
+  }
+
+  async function pfLoadList() {
+    const content = document.getElementById("pf-list-content");
+    content.innerHTML = '<div class="pf-loading">Loading…</div>';
+    let rows;
+    try {
+      const res = await fetch("/portfolios");
+      rows = await res.json();
+    } catch(e) {
+      content.innerHTML = `<div class="error-box"><div class="error-icon">❌</div><div>Failed to load portfolios</div></div>`;
+      return;
+    }
+    if (!rows.length) {
+      content.innerHTML = '<div class="pf-empty">No portfolios yet. Create one below.</div>';
+      return;
+    }
+    content.innerHTML = `
+      <table class="tk-table pf-list-table">
+        <thead><tr><th>Name</th><th>Created</th><th></th></tr></thead>
+        <tbody>
+          ${rows.map(p => `
+            <tr>
+              <td><strong>${escHtml(p.name)}</strong></td>
+              <td class="pf-date">${(p.created_at || "").split(" ")[0]}</td>
+              <td class="pf-row-actions">
+                <button class="pf-view-btn" data-id="${p.id}" data-name="${escHtml(p.name)}">View</button>
+                <button class="pf-del-btn" data-id="${p.id}" data-name="${escHtml(p.name)}">Delete</button>
+              </td>
+            </tr>`).join("")}
+        </tbody>
+      </table>`;
+
+    content.querySelectorAll(".pf-view-btn").forEach(btn => {
+      btn.addEventListener("click", () => pfOpenDetail(parseInt(btn.dataset.id), btn.dataset.name));
+    });
+    content.querySelectorAll(".pf-del-btn").forEach(btn => {
+      btn.addEventListener("click", () => pfDeletePortfolio(parseInt(btn.dataset.id), btn.dataset.name));
+    });
+  }
+
+  function pfOpenDetail(id, name) {
+    pfCurrentId = id;
+    pfCurrentName = name;
+    document.getElementById("pf-list").classList.add("hidden");
+    const detail = document.getElementById("pf-detail");
+    detail.classList.remove("hidden");
+    document.getElementById("pf-detail-name").textContent = name;
+    pfLoadDetail(id);
+  }
+
+  async function pfLoadDetail(id) {
+    const wrap    = document.getElementById("pf-positions-wrap");
+    const summary = document.getElementById("pf-portfolio-summary");
+    const chartEl = document.getElementById("pf-perf-chart");
+    wrap.innerHTML    = '<div class="pf-loading">Loading…</div>';
+    summary.innerHTML = '';
+    if (chartEl) chartEl.innerHTML = '';
+
+    const [posResult, priceResult, perfResult] = await Promise.allSettled([
+      fetch(`/portfolio/${id}`).then(r => r.json()),
+      fetch(`/portfolio/${id}/prices`).then(r => r.json()),
+      fetch(`/portfolio/${id}/performance`).then(r => r.json()),
+    ]);
+
+    if (posResult.status === 'rejected') {
+      wrap.innerHTML = `<div class="error-box"><div class="error-icon">❌</div><div>Failed to load positions</div></div>`;
+      return;
+    }
+    pfCurrentPosData = posResult.value;
+    const priceData = priceResult.status === 'fulfilled'
+      ? priceResult.value
+      : { prices: {}, oldest_timestamp: null };
+    const snaps = perfResult.status === 'fulfilled' ? perfResult.value : [];
+    pfRenderPositions(pfCurrentPosData.positions || [], priceData);
+    pfRenderPerfChart(snaps);
+  }
+
+  function pfRenderPositions(positions, priceData) {
+    const wrap    = document.getElementById("pf-positions-wrap");
+    const summary = document.getElementById("pf-portfolio-summary");
+    const prices  = priceData.prices || {};
+
+    if (!positions.length) {
+      wrap.innerHTML    = '<div class="pf-empty">No positions yet. Add one below.</div>';
+      summary.innerHTML = '';
+      return;
+    }
+
+    let totalCost = 0, costCount = 0, totalValue = 0, unpricedCount = 0;
+    positions.forEach(p => {
+      if (p.cost_basis != null && p.shares != null) { totalCost += p.cost_basis * p.shares; costCount++; }
+      const pd = prices[p.ticker];
+      if (pd && pd.price != null) { totalValue += pd.price * p.shares; }
+      else { unpricedCount++; }
+    });
+
+    // Summary bar
+    let summaryHtml = `<div class="pf-summary-bar">`;
+    summaryHtml += `<span class="pf-summary-val">Total Value: ${totalValue > 0 ? "$" + totalValue.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2}) : "—"}</span>`;
+    if (costCount > 0) summaryHtml += ` <span class="pf-summary-sep">·</span> <span class="pf-summary-cost">Cost Basis: $${totalCost.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2})}</span>`;
+    if (unpricedCount > 0) summaryHtml += ` <span class="pf-summary-unpriced">(${unpricedCount} position${unpricedCount > 1 ? "s" : ""} unpriced)</span>`;
+    summaryHtml += `</div>`;
+    if (priceData.oldest_timestamp) {
+      summaryHtml += `<div class="pf-staleness">Prices as of ${priceData.oldest_timestamp} UTC — <button class="pf-stale-refresh-link" id="pf-stale-refresh-link">refresh for current</button></div>`;
+    }
+    summary.innerHTML = summaryHtml;
+    const staleLink = document.getElementById("pf-stale-refresh-link");
+    if (staleLink) staleLink.addEventListener("click", pfRefreshPrices);
+
+    // Positions table
+    wrap.innerHTML = `
+      <div class="table-wrap">
+        <table class="tk-table pf-positions-table">
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Shares</th>
+              <th>Cost / Share</th>
+              <th>Total Cost</th>
+              <th>Price</th>
+              <th>Value</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${positions.map(p => {
+              const costTotal = (p.cost_basis != null && p.shares != null)
+                ? "$" + (p.cost_basis * p.shares).toFixed(2) : "—";
+              const pd        = prices[p.ticker];
+              const priceFmt  = pd && pd.price != null ? "$" + parseFloat(pd.price).toFixed(2) : "—";
+              const valueFmt  = pd && pd.price != null && p.shares != null
+                ? "$" + (pd.price * p.shares).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2}) : "—";
+              return `<tr>
+                <td><strong>${escHtml(p.ticker)}</strong></td>
+                <td>${pfFmt(p.shares, "shares")}</td>
+                <td>${p.cost_basis != null ? pfFmt(p.cost_basis, "money") : "—"}</td>
+                <td>${costTotal}</td>
+                <td class="pf-price-cell">${priceFmt}</td>
+                <td class="pf-value-cell">${valueFmt}</td>
+                <td><button class="pf-pos-del-btn" data-id="${p.id}">×</button></td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>`;
+
+    wrap.querySelectorAll(".pf-pos-del-btn").forEach(btn => {
+      btn.addEventListener("click", () => pfDeletePosition(parseInt(btn.dataset.id)));
+    });
+  }
+
+  async function pfRefreshPrices() {
+    const btn = document.getElementById("pf-refresh-prices-btn");
+    if (btn) { btn.disabled = true; btn.textContent = "↻ Refreshing…"; }
+    try {
+      const priceRes  = await fetch(`/portfolio/${pfCurrentId}/prices/refresh`, { method: "POST" });
+      const priceData = priceRes.ok ? await priceRes.json() : { prices: {}, oldest_timestamp: null };
+      const perfRes   = await fetch(`/portfolio/${pfCurrentId}/performance`);
+      const snaps     = perfRes.ok ? await perfRes.json() : [];
+      pfRenderPositions(pfCurrentPosData?.positions || [], priceData);
+      pfRenderPerfChart(snaps);
+    } catch(e) {
+      console.error("Price refresh failed:", e);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "↻ Refresh Prices"; }
+    }
+  }
+
+  function pfRenderPerfChart(snaps) {
+    const el = document.getElementById("pf-perf-chart");
+    if (!el) return;
+    const valid = (snaps || []).filter(s => s.total_value != null);
+    if (valid.length < 2) {
+      el.innerHTML = '<div class="pf-chart-empty">Not enough historical data yet.</div>';
+      return;
+    }
+    el.innerHTML = '<div id="pf-perf-plotly" style="width:100%;height:260px;"></div>';
+    Plotly.newPlot("pf-perf-plotly", [{
+      x: valid.map(s => s.snapshot_date),
+      y: valid.map(s => s.total_value),
+      type: "scatter",
+      mode: "lines",
+      line: { color: "#2a9d8f", width: 2 },
+      hovertemplate: "%{x}<br>$%{y:,.2f}<extra></extra>",
+    }], {
+      paper_bgcolor: "rgba(0,0,0,0)",
+      plot_bgcolor:  "rgba(0,0,0,0)",
+      font: { family: "DM Mono, monospace", color: "#6e7a82" },
+      margin: { t: 12, r: 16, b: 40, l: 80 },
+      xaxis: { type: "date", tickformat: "%b %d", gridcolor: "#30363d", zerolinecolor: "#30363d" },
+      yaxis: { tickprefix: "$", tickformat: ",.0f", gridcolor: "#30363d", zerolinecolor: "#30363d" },
+      showlegend: false,
+    }, { responsive: true, displayModeBar: false });
+  }
+
+  // ── Portfolio delete — type-to-confirm modal ──────────────────────────────
+  let pfPendingDeleteId   = null;
+  let pfPendingDeleteName = "";
+
+  function pfOpenConfirmModal(id, name) {
+    pfPendingDeleteId   = id;
+    pfPendingDeleteName = name;
+    document.getElementById("pf-confirm-name").textContent = `"${name}"`;
+    const input = document.getElementById("pf-confirm-input");
+    input.value = "";
+    document.getElementById("pf-confirm-delete").disabled = true;
+    document.getElementById("pf-confirm-modal").classList.remove("hidden");
+    input.focus();
+  }
+
+  function pfCloseConfirmModal() {
+    document.getElementById("pf-confirm-modal").classList.add("hidden");
+    document.getElementById("pf-confirm-input").value = "";
+    document.getElementById("pf-confirm-delete").disabled = true;
+    pfPendingDeleteId   = null;
+    pfPendingDeleteName = "";
+  }
+
+  document.getElementById("pf-confirm-input").addEventListener("input", function() {
+    document.getElementById("pf-confirm-delete").disabled = (this.value !== "DELETE");
+  });
+
+  document.getElementById("pf-confirm-cancel").addEventListener("click", pfCloseConfirmModal);
+
+  document.getElementById("pf-confirm-modal").addEventListener("click", function(e) {
+    if (e.target === this) pfCloseConfirmModal();
+  });
+
+  document.getElementById("pf-confirm-delete").addEventListener("click", async function() {
+    if (!pfPendingDeleteId) return;
+    const id = pfPendingDeleteId;
+    pfCloseConfirmModal();
+    await fetch(`/portfolio/${id}/delete`, { method: "POST" });
+    // If we're in detail view for this portfolio, go back to list
+    if (pfCurrentId === id) {
+      pfCurrentId = null;
+      document.getElementById("pf-detail").classList.add("hidden");
+      document.getElementById("pf-list").classList.remove("hidden");
+    }
+    pfLoadList();
+  });
+
+  function pfDeletePortfolio(id, name) {
+    pfOpenConfirmModal(id, name);
+  }
+
+  // ── Position delete — simple warning modal (no type-to-confirm) ───────────
+  let pfPendingPosId = null;
+
+  function pfOpenPosConfirmModal(posId) {
+    pfPendingPosId = posId;
+    document.getElementById("pf-pos-confirm-modal").classList.remove("hidden");
+  }
+
+  function pfClosePosConfirmModal() {
+    document.getElementById("pf-pos-confirm-modal").classList.add("hidden");
+    pfPendingPosId = null;
+  }
+
+  document.getElementById("pf-pos-confirm-cancel").addEventListener("click", pfClosePosConfirmModal);
+
+  document.getElementById("pf-pos-confirm-modal").addEventListener("click", function(e) {
+    if (e.target === this) pfClosePosConfirmModal();
+  });
+
+  document.getElementById("pf-pos-confirm-ok").addEventListener("click", async function() {
+    if (!pfPendingPosId) return;
+    const posId = pfPendingPosId;
+    pfClosePosConfirmModal();
+    await fetch(`/position/${posId}/delete`, { method: "POST" });
+    pfLoadDetail(pfCurrentId);
+  });
+
+  function pfDeletePosition(posId) {
+    pfOpenPosConfirmModal(posId);
+  }
+
+  document.getElementById("pf-back-btn").addEventListener("click", () => {
+    pfCurrentId = null;
+    pfCurrentName = "";
+    pfCurrentPosData = null;
+    document.getElementById("pf-detail").classList.add("hidden");
+    document.getElementById("pf-list").classList.remove("hidden");
+    pfLoadList();
+  });
+
+  document.getElementById("pf-refresh-prices-btn").addEventListener("click", pfRefreshPrices);
+
+  document.getElementById("pf-delete-portfolio-btn").addEventListener("click", () => {
+    if (pfCurrentId) pfOpenConfirmModal(pfCurrentId, pfCurrentName);
+  });
+
+  document.getElementById("pf-create-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("pf-name").value.trim();
+    if (!name) return;
+    const csvFile = document.getElementById("pf-csv").files[0];
+
+    const fd = new FormData();
+    fd.append("name", name);
+    if (csvFile) fd.append("csv", csvFile);
+
+    const btn = e.target.querySelector("button[type=submit]");
+    btn.disabled = true;
+    btn.textContent = "Creating…";
+
+    let data;
+    try {
+      const res = await fetch("/portfolios", { method: "POST", body: fd });
+      data = await res.json();
+    } catch(err) {
+      btn.disabled = false;
+      btn.textContent = "Create Portfolio";
+      return;
+    }
+
+    btn.disabled = false;
+    btn.textContent = "Create Portfolio";
+    document.getElementById("pf-name").value = "";
+    document.getElementById("pf-csv").value = "";
+
+    if (data.error) {
+      alert(data.error);
+      return;
+    }
+
+    const summaryEl = document.getElementById("pf-import-summary");
+    summaryEl.innerHTML = pfRenderImportSummary(data.imported, data.skipped, csvFile);
+    summaryEl.classList.remove("hidden");
+    setTimeout(() => summaryEl.classList.add("hidden"), 12000);
+
+    pfLoadList();
+  });
+
+  document.getElementById("pf-add-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const ticker = document.getElementById("pf-pos-ticker").value.trim().toUpperCase();
+    const shares = parseFloat(document.getElementById("pf-pos-shares").value);
+    const costRaw = document.getElementById("pf-pos-cost").value;
+    const cost_basis = costRaw ? parseFloat(costRaw) : null;
+
+    if (!ticker || !shares) return;
+
+    const btn = e.target.querySelector("button[type=submit]");
+    btn.disabled = true;
+
+    await fetch(`/portfolio/${pfCurrentId}/position`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker, shares, cost_basis }),
+    });
+
+    btn.disabled = false;
+    document.getElementById("pf-pos-ticker").value = "";
+    document.getElementById("pf-pos-shares").value = "";
+    document.getElementById("pf-pos-cost").value = "";
+    pfLoadDetail(pfCurrentId);
+  });
+
+  function pfRenderImportSummary(imported, skipped, csvFile) {
+    if (!csvFile) return "";
+    let html = `<strong>Imported ${imported} position${imported !== 1 ? "s" : ""}.</strong>`;
+    if (!skipped || !skipped.length) return html;
+
+    const funds   = skipped.filter(s => s.reason.includes("fund"));
+    const soldOut = skipped.filter(s => s.reason.includes("sold-out"));
+    const other   = skipped.filter(s => !s.reason.includes("fund") && !s.reason.includes("sold-out"));
+
+    const parts = [];
+    if (funds.length)   parts.push(`${funds.length} fund${funds.length > 1 ? "s" : ""}`);
+    if (soldOut.length) parts.push(`${soldOut.length} sold-out`);
+    if (other.length)   parts.push(`${other.length} other`);
+
+    html += ` Skipped ${skipped.length}: ${parts.join(", ")}.`;
+    if (skipped.length <= 15) {
+      html += "<ul class='pf-skip-list'>" +
+        skipped.map(s => `<li>${escHtml(s.symbol || "(empty)")}: ${escHtml(s.reason)}</li>`).join("") +
+        "</ul>";
+    }
+    return html;
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  // Reload list if portfolio tab was already active on page load
+  if (localStorage.getItem('activeTab') === 'portfolio') pfLoadList();
   </script>
 </body>
 </html>
