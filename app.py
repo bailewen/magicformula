@@ -21,7 +21,6 @@ if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 import magicformula as mf
-import portfolio as pf
 
 pf.init_schema()
 
