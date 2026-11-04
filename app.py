@@ -22,8 +22,6 @@ if current_dir not in sys.path:
 
 import magicformula as mf
 
-pf.init_schema()
-
 app = Flask(__name__)
 
 # In-memory store for scan state keyed by scan_id
