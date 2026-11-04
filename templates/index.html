@@ -834,10 +834,8 @@ function switchTab(tabName) {
   document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
   document.getElementById('tab-screener').classList.add('hidden');
   document.getElementById('tab-ticker').classList.add('hidden');
-  document.getElementById('tab-portfolio').classList.add('hidden');
   document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-  localStorage.setItem('activeTab', tabName);
-  if (tabName === 'portfolio') pfLoadList();
+  localStorage.setItem('activeTab', tabName);  
 }
 
 document.querySelectorAll('.tab').forEach(tab => {
