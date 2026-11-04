@@ -597,6 +597,29 @@ const COL_LABELS = {
 
 let sortCol = null;
 let sortAsc = true;
+	
+function sortBy(col) {
+  if (sortCol === col) {
+    sortAsc = !sortAsc;
+  } else {
+    sortCol = col;
+    sortAsc = true;
+  }
+
+  currentResults = [...currentResults].sort((a, b) => {
+    let av = a[col], bv = b[col];
+    if (av === null || av === undefined) av = -Infinity;
+    if (bv === null || bv === undefined) bv = -Infinity;
+    if (typeof av === "string" || typeof bv === "string") {
+      av = String(av).toLowerCase();
+      bv = String(bv).toLowerCase();
+      return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    }
+    return sortAsc ? av - bv : bv - av;
+  });
+
+  renderTable(currentResults);
+}
 
 function renderResults(results, count, total_analyzed, summary) {
   if (!results || results.length === 0) {
