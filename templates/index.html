@@ -694,7 +694,7 @@ function renderTable(data) {
     const label = c === "MF_score"
       ? `MF Score <span class="infotip" title="Ranked within this scan only, not the full market">ⓘ</span>`
       : (COL_LABELS[c] || c);
-    const arrow = sortCol === c ? (sortAsc ? " ▲" : " ▼") : "";
+    const arrow = sortCol === c ? (sortAsc ? " ▲" : " ▼") : " ⇅";
     return `<th style="cursor:pointer;" onclick="sortBy('${c}')">${label}${arrow}</th>`;
   }).join("")}</tr>`;
 
