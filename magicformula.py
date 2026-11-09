@@ -892,6 +892,8 @@ def main():
     cols = [c for c in cols if c in ranked.columns]
 
     out = ranked[cols].head(args.top)
+ 
+    """
     out.to_csv(args.out, index=False)
     
 # Save skipped stocks to separate CSV
@@ -902,6 +904,8 @@ def main():
         print(f"\nSkipped {len(skipped)} stocks (saved to: {skipped_file})")
 
     print("Top results saved to:", args.out)
+    """
+ 
     print(out.to_string(index=False, max_colwidth=28))
  
     elapsed = time.time() - start_time
