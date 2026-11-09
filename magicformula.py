@@ -14,18 +14,30 @@ Environment:
   export FMP_API_KEY="YOUR_KEY"
 
 Notes:
-- Symbols are pulled per‑exchange via `/stock/symbol?exchange=...`.
-- Financials are pulled via standardized `/financials` (income & balance sheet).
-- Profile (market cap, country, sector) via `/stock/profile2`.
-- EY = EBIT / EV, where EV = marketCap + totalDebt - cashAndCashEquivalents
-- ROC = EBIT / (NWC + Net Fixed Assets)
-    NWC = totalCurrentAssets - totalCurrentLiabilities
-    Net Fixed = propertyPlantEquipmentNet
-- Excludes financials & utilities.
+- Symbols come from FMP's /stock-screener, one call per exchange (active
+  stocks only; ETFs, funds, warrants, preferreds and sub-minimum market
+  caps are filtered out).
+- Profile (market cap, country, sector, industry) comes from /profile/{ticker}.
+- Income statement: /income-statement/{ticker}. TTM mode (default) uses the
+  last 4 quarters; --annual uses the latest annual statement.
+- Balance sheet: /balance-sheet-statement/{ticker}, latest quarter.
+- EBIT = operatingIncome (TTM: sum of the last 4 quarters).
+- EY  = EBIT / EV
+    EV = marketCap + totalDebt - cashAndShortTermInvestments
+    (totalDebt falls back to shortTermDebt + longTermDebt if missing)
+- ROC = EBIT / Capital
+    Capital = NWC + net PP&E (propertyPlantEquipmentNet)
+    NWC = (totalCurrentAssets - cash & short term investments)
+          - (totalCurrentLiabilities - shortTermDebt), floored at 0
+    Goodwill and intangibles are excluded unless --goodwill / --intangibles.
+- Rank: MF_score = EY rank + ROC rank (lower is better).
+- Excludes financials, utilities and real estate, and skips tickers with
+  negative EBIT, non-positive EV, capital under $10M, or implausible data.
+- Results are cached in cache.db for 7 days, keyed by ticker and options.
 
 Caveats:
-- Field names from FMP standardized statements can differ slightly
-  by market/time. Fallback helpers are included.
+- FMP field names can differ by company and period. If a required field is
+  missing, the ticker is skipped and the reason is listed in the skipped CSV.
 
 Run:
   python magicformula.py --top 30 --limit 0      # full universe
