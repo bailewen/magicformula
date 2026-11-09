@@ -305,8 +305,11 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_
     tcl  = _latest(bal, "totalCurrentLiabilities")
     ppe  = _latest(bal, "propertyPlantEquipmentNet")
     cash = _latest(bal, "cashAndShortTermInvestments")
-    debt = _first_available(bal, ["totalDebt", "shortTermDebt", "longTermDebt"]) or 0.0
-
+    debt = _latest(bal, "totalDebt")
+    if debt is None:
+        debt = (_latest(bal, "shortTermDebt") or 0.0) + (_latest(bal, "longTermDebt") or 0.0)
+    short_debt = _latest(bal, "shortTermDebt") or 0.0
+ 
     mcap = prof.get("mktCap") if prof.get("mktCap") is not None else prof.get("marketCap")
     try:
         mcap = float(mcap) if mcap is not None else None
@@ -319,11 +322,11 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_
         return {"reason": f"Missing fields: {', '.join(missing)}"}
 
     ev = mcap + debt - cash
-
-    nwc = (tca - cash) - (tcl - debt)
+    nwc = (tca - cash) - (tcl - short_debt)
     nwc = max(nwc, 0)
     goodwill = _latest(bal, "goodwill") or 0
     intangibles = _latest(bal, "intangibleAssets") or 0
+                             
     if not include_goodwill:
         goodwill = 0
     if not include_intangibles:
