@@ -28,7 +28,8 @@ Caveats:
   by market/time. Fallback helpers are included.
 
 Run:
- python magicformula.2.0.py --ex NASDAQ,NYSE,AMEX --top 30 --min-mcap 5e7 --limit 400
+  python magicformula.py --top 30 --limit 0      # full universe
+  python magicformula.py --top 30 --limit 400    # quick test run
  
 2.0 cleaned up references to Finnhub & adapted rate limits to FMP paid tier, added parameters to fmp_get() to filter for only actual stocks
 2.2 switched to TTM and added debugging visibility (error messages)
