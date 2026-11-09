@@ -72,16 +72,17 @@ class RateLimiter:
         self.lock = threading.Lock()
 
     def wait(self):
-        with self.lock:
-            now = time.time()
-            # pop timestamps older than 60s
-            while self.calls and now - self.calls[0] > self.window:
-                self.calls.popleft()
-            if len(self.calls) >= self.calls_per_minute:
+        while True:
+            with self.lock:
+                now = time.monotonic()
+                while self.calls and now - self.calls[0] > self.window:
+                    self.calls.popleft()
+                if len(self.calls) < self.calls_per_minute:
+                    self.calls.append(now)
+                    return
                 sleep_for = self.window - (now - self.calls[0]) + 0.01
-                if sleep_for > 0:
-                    time.sleep(sleep_for)
-            self.calls.append(time.time())
+            time.sleep(sleep_for)
+            
 limiter = RateLimiter(calls_per_minute=300)
 
 try:
