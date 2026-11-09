@@ -161,7 +161,7 @@ def run_mf_universe():
             (ticker,)
         ).fetchall()
         vault = {r[0]: json.loads(r[1]) for r in rows}
-        result = compute_mf_from_vault(ticker, vault, annual=True)
+        result = compute_mf_from_vault(ticker, vault, annual=False)
         if result:
             records.append(result)
 
