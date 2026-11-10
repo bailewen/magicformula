@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Magic Formula (Joel Greenblatt) — FMB
- edition
+Magic Formula screener
+Based on Joel Greenblatt's strategy, using Financial Modeling Prep (FMP) data.
 -------------------------------------------------
 This code uses Financial Modeling Prep (FMP).
 Starter Annual Plan
