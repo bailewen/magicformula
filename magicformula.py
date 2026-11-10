@@ -6,9 +6,10 @@ Based on Joel Greenblatt's strategy, using Financial Modeling Prep (FMP) data.
 This code uses Financial Modeling Prep (FMP).
 Starter Annual Plan
 
-Requirements (Manjaro/Arch):
-  python -m venv venv && source venv/bin/activate
-  pip install requests pandas numpy tqdm
+Requirements:
+  Python 3.10 or later
+  python -m venv venv && source venv/bin/activate    # Assumes Linux environment
+  pip install -r requirements.txt
 
 Environment:
   export FMP_API_KEY="YOUR_KEY"
