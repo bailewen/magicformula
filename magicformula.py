@@ -518,10 +518,12 @@ def compute_mf_from_vault(symbol: str, vault: dict, annual: bool = True) -> Opti
     vault = {"profile": [...], "income-statement": [...], "balance-sheet-statement": [...], ...}
     """
     try:
-        prof_raw = vault.get("profile", [])
-        prof = prof_raw[0] if isinstance(prof_raw, list) else prof_raw
+        prof = vault.get("profile")
+        if isinstance(prof, list):
+            prof = prof[0] if prof else None
         if not prof:
             return None
+
 
         inc = vault.get("income-statement", [])
         bal_raw = vault.get("balance-sheet-statement", [])
