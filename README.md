@@ -1,4 +1,4 @@
-# Value Investing Stock Screener
+# Magic Formula Stock Screener
 
 ## What it does
 
