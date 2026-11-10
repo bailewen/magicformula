@@ -110,7 +110,7 @@ EXCLUDE_SECTORS = {
 # -------------------- HTTP helpers --------------------
 
 S = requests.Session()
-S.headers.update({"User-Agent": "MagicFormulaFMB/1.0"})
+S.headers.update({"User-Agent": "MagicFormula (+https://magic.omarbelove.com)"})
 
 def fmp_get(path: str, params: Optional[Dict[str, Any]] = None, retries: int = 3, backoff: float = 0.8, api_key: str = None):
     if params is None:
