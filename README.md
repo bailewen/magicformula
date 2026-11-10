@@ -90,7 +90,7 @@ Open <http://127.0.0.1:5000> in your browser.
 If you decide to set up a cron job to keep the data fresh, note that the cron job needs to be run as the same user who owns the app. The crontab I use to run the scan at 2 AM (server time) on Sundays looks like this:
 
 ```
-FMP_API_KEY=your_key_here
+FMP_API_KEY=my_key_here
 0 2 * * 0 /path/to/magicformula/venv/bin/python /path/to/magicformula/deep_scan.py
 ```
 
