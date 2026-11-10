@@ -14,6 +14,7 @@ import requests
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import Counter
+from statistics import median
 
 # Add current directory to path so magicformula imports correctly
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -612,7 +613,7 @@ def _compute_summary(results: list, elapsed: float) -> dict:
         "count":          len(results),
         "avg_ey":         round(sum(eys)  / len(eys)  * 100, 2) if eys  else None,
         "avg_roc":        round(sum(rocs) / len(rocs) * 100, 2) if rocs else None,
-        "median_ey":      round(sorted(eys)[len(eys)   // 2] * 100, 2) if eys  else None,
+        "median_ey":      round(median(eys) * 100, 2) if eys else None,
         "median_roc":     round(sorted(rocs)[len(rocs) // 2] * 100, 2) if rocs else None,
         "max_ey":         round(max(eys)  * 100, 2) if eys  else None,
         "max_roc":        round(max(rocs) * 100, 2) if rocs else None,
