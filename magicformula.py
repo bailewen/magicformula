@@ -61,9 +61,6 @@ from pathlib import Path
 from collections import deque
 import threading
 
-#---filter dataset for actual active stock 
-
-
 #---rate limiter
 class RateLimiter:
     """Simple per-minute rate limiter."""
@@ -125,7 +122,7 @@ def fmp_get(path: str, params: Optional[Dict[str, Any]] = None, retries: int = 3
     params["apikey"] = api_key
     url = f"{FMP_BASE}{path}"
     for a in range(retries):
-        limiter.wait()  # reuse your existing RateLimiter
+        limiter.wait()
         r = S.get(url, params=params, timeout=5)
         if r.status_code == 429:
             time.sleep(backoff * (a + 1))
@@ -133,7 +130,6 @@ def fmp_get(path: str, params: Optional[Dict[str, Any]] = None, retries: int = 3
         r.raise_for_status()
         return r.json()
     raise requests.HTTPError(f"Failed after retries: {url}")
-
 
 # -------------------- Data pulling --------------------
 
@@ -262,24 +258,6 @@ def _latest(items: List[Dict[str, Any]], field: str):
         return None
     v = items[0].get(field)
     return None if v in (None, "") else float(v)
-
-def _first_available(items: List[Dict[str, Any]], fields: List[str]):
-    if not items:
-        return None
-    for f in fields:
-        v = items[0].get(f)
-        if v not in (None, ""):
-            try:
-                return float(v)
-            except Exception:
-                return None
-    return None
-
-def _sum_ttm(items: List[Dict[str, Any]], field: str, start_idx: int = 0) -> float:
-    try:
-        return sum(float(q.get(field) or 0) for q in items[start_idx:start_idx+4])
-    except Exception:
-        return 0.0
 
 # -------------------- Field helpers --------------------
 def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_goodwill: bool = False,
