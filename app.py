@@ -614,10 +614,10 @@ def _compute_summary(results: list, elapsed: float) -> dict:
         "avg_ey":         round(sum(eys)  / len(eys)  * 100, 2) if eys  else None,
         "avg_roc":        round(sum(rocs) / len(rocs) * 100, 2) if rocs else None,
         "median_ey":      round(median(eys) * 100, 2) if eys else None,
-        "median_roc":     round(sorted(rocs)[len(rocs) // 2] * 100, 2) if rocs else None,
+        "median_roc":     round(median(rocs) * 100, 2) if rocs else None,
         "max_ey":         round(max(eys)  * 100, 2) if eys  else None,
         "max_roc":        round(max(rocs) * 100, 2) if rocs else None,
-        "median_mcap_b":  round(sorted(mcaps)[len(mcaps) // 2] / 1e9, 2) if mcaps else None,
+        "median_mcap_b":  round(median(mcaps) * 1e9, 2) if mcaps else None,
         "top_sectors":    dict(sectors.most_common(5)),
         "scatter": [
             {"ticker": r["ticker"], "name": r.get("name", ""), "sector": r.get("sector", ""),
