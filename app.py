@@ -617,7 +617,7 @@ def _compute_summary(results: list, elapsed: float) -> dict:
         "median_roc":     round(median(rocs) * 100, 2) if rocs else None,
         "max_ey":         round(max(eys)  * 100, 2) if eys  else None,
         "max_roc":        round(max(rocs) * 100, 2) if rocs else None,
-        "median_mcap_b":  round(median(mcaps) * 1e9, 2) if mcaps else None,
+        "median_mcap_b":  round(median(mcaps) / 1e9, 2) if mcaps else None,
         "top_sectors":    dict(sectors.most_common(5)),
         "scatter": [
             {"ticker": r["ticker"], "name": r.get("name", ""), "sector": r.get("sector", ""),
