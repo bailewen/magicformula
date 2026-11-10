@@ -1,217 +1,99 @@
-# Magic Formula Stock Screener
+# Value Investing Stock Screener
 
-A global stock screener implementing Joel Greenblatt's Magic Formula strategy, supporting 12 international markets.
+## What it does
 
-## Live Demo
-Try it now: [magic.omarbelove.com](https://magic.omarbelove.com)
+There is a stock screener based on Joel Greenblatt's "magic formula" and a single ticker lookup for a deeper dive into the metrics of individual stocks.
 
+## How it works
 
-## Features
-- Magic Formula ranking (Earnings Yield + Return on Capital)
-- 12 global markets with quality tier ratings
-- Parallel processing (analyze 400+ stocks in less than a minute)
-- SQLite caching (uncached full market run ~30 min; repeated runs ~5-6 min)
-- Real-time progress streaming via Server-Sent Events (SSE)
-- Interactive scatter plot (Quality vs. Value)
-- CSV export with full metrics including goodwill and intangibles
-- TTM (trailing twelve month) calculations (default) with option to use annual reports instead
-- Excludes financials, utilities, REITs per Greenblatt methodology
-- Data sanity filters: negative EBIT exclusion, EV/market cap plausibility check
-- Optional health checks for extra scrutiny
-- Cancellable scans via Stop button
+There are 3 main parts:
 
-## Market Coverage
+- A screener that scans the markets for value stocks
+- A deep scan that saves JSON blobs for single ticker lookup
+- A webpage hosted at [magic.omarbelove.com](https://magic.omarbelove.com)
 
-**Tier 1** (Highest Data Quality):
-- USA - NASDAQ, NYSE, AMEX
-- Singapore - SGX
-- United Kingdom - LSE
-- Canada - TSX
+### The screener
 
-**Tier 2** (Good Quality):
-- Australia - ASX
-- Germany - XETRA
-- France - Euronext Paris
-- Japan - TSE
+A Python script (`magicformula.py`) pulls data from a Financial Modeling Prep (FMP) endpoint, and data is cached to a SQLite database, `cache.db`, for 7 days. This is not intended for active trading, so data doesn't need to be any fresher than that.
 
-**Tier 3** (Emerging Markets):
-- Hong Kong - HKEX
-- South Korea - KRX
-- India - NSE/BSE
-- China - SSE/SZSE
+It uses 10 threads at a time to reduce wait times and maximize my rate limit, and WAL mode reduces lock contention.
 
-## Quick Start
+Results are displayed on the "Screener" tab found at [magic.omarbelove.com](https://magic.omarbelove.com) (hosted on a DigitalOcean droplet). But you can deploy it locally as well and launch it using <http://127.0.0.1:5000> from your browser. Note that if you decide to host it yourself, you will need your own FMP API key.
 
-### Option 1: Use Hosted Version (Easiest)
-1. Visit [magic.omarbelove.com](https://magic.omarbelove.com)
-2. Run your scan — no API key needed
+### The Single Ticker
 
-### Option 2: Run Locally
+`deep_scan.py` performs a deep scan of all US markets and then saves the data as JSON blobs in a separate table. Its main purpose is to create an on-demand database for fast lookup of any single stock on the Single Ticker tab. It also provides data for a deeper drill down of any stock returned on the Screener tab.
 
-**Requirements:**
-- Python 3.8+
-- FMP API key (Starter plan or higher - $19/mo) — get one at [financialmodelingprep.com](https://financialmodelingprep.com/developer/docs/pricing)
+You can run the scan manually, but I prefer a weekly cron job.
 
-**Installation:**
-```bash
-git clone https://github.com/bailewen/magicformula.git
-cd magicformula
-pip install -r requirements.txt
+### The webpage
+
+The website, [magic.omarbelove.com](https://magic.omarbelove.com), is deployed on a DigitalOcean droplet and served up by a Flask app. Scan results are displayed on one tab and are exportable to CSV. If the cache is warm a full scan can be as quick as 5 or 6 minutes, but if it's cold, a scan takes about 20 minutes or so. The single ticker lookup, displayed on a second tab, is almost instant.
+
+## How to deploy it locally
+
+These instructions assume a Linux environment.
+
+### Requirements
+
+- Python 3.10 or later
+- All packages listed in `requirements.txt`
+- An [FMP API key](https://financialmodelingprep.com/developer/docs/pricing). The default rate limiter assumes a Starter plan.
+- Approximately half a GB of space for the database
+
+### Steps
+
+1. Clone the repository and enter its directory:
+
+   ```bash
+   git clone https://github.com/bailewen/magicformula.git
+   cd magicformula
+   ```
+
+2. Create a virtual environment:
+
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
+
+   > **Note:** Ubuntu/Debian users may need to install `python3-venv`.
+
+3. Install dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Set your API key:
+
+   ```bash
+   export FMP_API_KEY="your_key_here"
+   ```
+
+5. Populate the database for the single ticker lookup. The first run takes several hours, so run it detached:
+
+   ```bash
+   nohup python deep_scan.py > deep_scan.log 2>&1 &
+   ```
+
+6. Start the app:
+
+   ```bash
+   python app.py
+   ```
+
+Open <http://127.0.0.1:5000> in your browser.
+
+### Keeping the data fresh
+
+If you decide to set up a cron job to keep the data fresh, note that the cron job needs to be run as the same user who owns the app. The crontab I use to run the scan at 2 AM (server time) on Sundays looks like this:
+
 ```
-
-**Run Flask UI:**
-```bash
-export FMP_API_KEY="your_key_here"
-python app.py
+FMP_API_KEY=your_key_here
+0 2 * * 0 /path/to/magicformula/venv/bin/python /path/to/magicformula/deep_scan.py
 ```
-
-Then open [http://127.0.0.1:5000](http://127.0.0.1:5000) in your browser. If you haven't set the environment variable, you can paste your API key directly in the sidebar.
-
-**Run CLI:**
-```bash
-python magicformula.py --ex NASDAQ,NYSE --top 30 --limit 400
-```
-
-## Magic Formula Methodology
-
-**Earnings Yield (EY)** = EBIT / Enterprise Value
-- Measures how cheap the stock is relative to earnings
-- Higher is better (more earnings per dollar invested)
-
-**Return on Capital (ROC)** = EBIT / (Net Working Capital + Net Fixed Assets)
-- Measures capital efficiency
-- Higher is better (more earnings per dollar of capital)
-
-**Magic Formula Score** = EY Rank + ROC Rank
-- Lower score is better
-- Finds stocks that are both cheap AND high quality
-
-### Exclusions
-Automatically excludes sectors that don't work well with the formula:
-- Financial Services (banks, insurance)
-- Utilities
-- Real Estate / REITs
-
-Additionally excludes individual stocks where:
-- EBIT is negative
-- Enterprise Value is implausibly small relative to market cap (likely data error)
-- ROC exceeds 1000% (likely data error)
-- Capital base is below $10M
-
-## CLI Options
-```bash
-python magicformula.py \
-  --ex NASDAQ,NYSE,AMEX \  # Exchanges to scan
-  --top 30 \               # Number of results
-  --limit 400 \            # Max stocks to analyze
-  --min-mcap 50000000 \    # Minimum market cap ($50M)
-  --annual \               # Use annual reports instead of TTM
-  --no-intangibles \       # Exclude goodwill/intangibles from capital calculation
-  --health-checks \        # Run D/E and cash flow quality checks on top candidates
-  --random                 # Randomize symbol selection (avoids alphabetical bias with small samples)
-```
-
-## Output
-
-Results include:
-- **Basic Info**: Ticker, Name, Exchange, Country, Sector, Industry
-- **Fundamentals**: Market Cap, Enterprise Value, EBIT, Cash, Total Debt
-- **Balance Sheet**: Net Working Capital, Net Fixed Assets, Capital Base, Goodwill, Intangibles
-- **Magic Formula Metrics**: Earnings Yield, Return on Capital
-- **Rankings**: Individual ranks and combined Magic Formula score
-
-Export to CSV for further analysis or portfolio tracking.
-
-## Configuration
-
-**For local use:**
-```bash
-export FMP_API_KEY="your_key_here"
-```
-
-Or add to `~/.bashrc` for persistence:
-```bash
-export FMP_API_KEY="your_key_here"
-```
-
-**For the hosted droplet:**
-Add to the environment in your systemd service file:
-```ini
-Environment="FMP_API_KEY=your_key_here"
-```
-
-## Deployment (DigitalOcean / Production)
-
-**Important:** Do not use the Flask development server in production. Use Gunicorn with a single worker to ensure scan state is shared correctly across all requests:
-
-```bash
-gunicorn -w 1 --threads 4 app:app
-```
-
-**Why `-w 1`:** Scan state is held in memory (`_scans` dict). Multiple Gunicorn workers would each have their own copy, causing SSE progress streams to fail. A single worker with multiple threads handles concurrent requests correctly without this issue.
-
-**Example systemd service:**
-```ini
-[Unit]
-Description=Magic Formula Screener
-After=network.target
-
-[Service]
-User=streamlit
-WorkingDirectory=/home/streamlit/magicformula
-Environment="FMP_API_KEY=your_key_here"
-ExecStart=/home/streamlit/magicformula/venv/bin/gunicorn -w 1 --threads 4 -b 0.0.0.0:5000 app:app
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-## API Endpoints
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/` | GET | Main UI |
-| `/scan` | POST | Start a new scan, returns `scan_id` |
-| `/progress/<scan_id>` | GET | SSE stream of real-time progress |
-| `/stop/<scan_id>` | POST | Cancel a running scan |
-| `/results/<scan_id>` | GET | Fetch final ranked results as JSON |
-| `/summary/<scan_id>` | GET | Fetch scan summary stats as JSON |
-| `/download/<scan_id>` | GET | Download results as CSV |
-| `/chart/<scan_id>` | GET | Standalone scatter plot and stats report |
-
-## Contributing
-
-Contributions welcome. Areas for improvement:
-- Backtesting framework
-- Portfolio tracking features
-- Additional screening criteria
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details.
-
-## Learn More
-
-- [Joel Greenblatt's Magic Formula](https://www.magicformulainvesting.com/)
-- [The Little Book That Beats the Market](https://www.amazon.com/Little-Book-That-Beats-Market/dp/0471733067)
-- [FMP API Documentation](https://site.financialmodelingprep.com/developer/docs)
 
 ## Disclaimer
 
-This tool is for educational and research purposes only. Not financial advice.
-Past performance does not guarantee future results. Always do your own research
-and consult with a qualified financial advisor before making investment decisions.
-
-## License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Joel Greenblatt for the Magic Formula methodology
-- Financial Modeling Prep for comprehensive market data
-
----
-
-**Built for value investors worldwide**
-
-Questions? Open an issue on GitHub
+This is a research tool, not financial advice. The data comes from FMP and can contain errors, so verify anything you plan to act on.
