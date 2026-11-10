@@ -7,7 +7,7 @@ This code uses Financial Modeling Prep (FMP).
 Starter Annual Plan
 
 Requirements (Manjaro/Arch):
-  python -m venv && source venv/bin/activate
+  python -m venv venv && source venv/bin/activate
   pip install requests pandas numpy tqdm
 
 Environment:
