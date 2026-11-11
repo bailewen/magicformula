@@ -693,7 +693,45 @@ def _set_deepscan_pause(paused: bool) -> None:
     conn.commit()
     conn.close()
 
+# -------------------- Company Metrics --------------------
+def fetch_blob(symbol, endpoint):
+    conn = get_conn()
+    try:
+        row = conn.execute(
+            "SELECT json_blob FROM raw_json_vault WHERE ticker = ? AND endpoint = ?",
+            (symbol, endpoint)
+        ).fetchone()
+    finally:
+        conn.close()
+        
+    if row is None:
+        return None
+    return json.loads(row[0])
 
+def fetch_company(symbol, annual, include_goodwill, include_intangibles):
+
+    try:
+        prof = fetch_from_vault(symbol, "profile")
+        inc  = fetch_from_vault(symbol, "income-statement")
+        bal  = fetch_from_vault(symbol, "balance-sheet-statement")
+
+        if not prof or not inc or not bal:
+            return {"type": "skip", "ticker": symbol, "name": symbol, "reason": "Not in vault"}
+
+        prof = prof[0]
+        result = _compute_mf_metrics(prof, inc, bal, False, include_goodwill, include_intangibles)
+
+        if result is None:
+            return None
+        if "reason" in result:
+            return {"type": "skip", "ticker": symbol, "name": prof.get("companyName", symbol),
+                    "reason": result["reason"]}
+        return {"type": "success", "ticker": symbol, **result}
+
+    except Exception as e:
+        return {"type": "skip", "ticker": symbol, "name": symbol, "reason": f"Exception: {e}"}
+
+# -----------------deprecation pending-------------------
 def fetch_company_with_cache(symbol: str, annual: bool = False, include_goodwill: bool = False,
                              include_intangibles: bool = False, compute_z: bool = False,
                              compute_f: bool = False, api_key: str = None) -> Optional[Dict[str, Any]]:
