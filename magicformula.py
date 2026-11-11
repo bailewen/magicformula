@@ -708,12 +708,23 @@ def fetch_blob(symbol, endpoint):
         return None
     return json.loads(row[0])
 
-def fetch_company(symbol, annual, include_goodwill, include_intangibles):
+def fetch_vault_tickers():
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT ticker FROM raw_json_vault ",            
+        ).fetchall()
+    finally:
+        conn.close()        
+
+    return [row[0] for row in rows]
+
+def fetch_company(symbol, include_goodwill=False, include_intangibles=False):
 
     try:
-        prof = fetch_from_vault(symbol, "profile")
-        inc  = fetch_from_vault(symbol, "income-statement")
-        bal  = fetch_from_vault(symbol, "balance-sheet-statement")
+        prof = fetch_blob(symbol, "profile")
+        inc  = fetch_blob(symbol, "income-statement")
+        bal  = fetch_blob(symbol, "balance-sheet-statement")
 
         if not prof or not inc or not bal:
             return {"type": "skip", "ticker": symbol, "name": symbol, "reason": "Not in vault"}
