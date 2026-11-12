@@ -830,57 +830,25 @@ def main():
  
     exchanges = [x.strip() for x in args.exchanges.split(',') if x.strip()]
 
-    # Pull symbols per exchange
-    symbols: List[str] = []
-    for ex in exchanges:
-        rows = list_symbols(ex, args.min_mcap, countries)
-        for r in rows:
-            sym = r.get("symbol") or r.get("displaySymbol")
-            if sym:
-                symbols.append(sym)
-        time.sleep(args.sleep)
-
-    # Dedup (filtering already done in list_symbols)
-    symbols = list(dict.fromkeys(symbols))
-
-    use_random = not args.no_random
-    if use_random:
-        print(f"Randomizing {len(symbols)} symbols before sampling...")
-        random.shuffle(symbols)
-
-    if args.limit and len(symbols) > args.limit:
-        symbols = symbols[:args.limit]
-
     # Pull company data
+    symbols = fetch_vault_tickers()
 
     records = []
     skipped = []
-    _set_deepscan_pause(True)
-    try:
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = {executor.submit(fetch_company_with_cache, sym, args.annual, args.include_goodwill,
-                                       args.include_intangibles, args.zscore, args.fscore): sym for sym in symbols}
-            for future in tqdm(as_completed(futures), total=len(futures), desc="Pulling fundamentals"):
-                try:
-                    rec = future.result(timeout=5)
-                    if rec:
-                        if rec.get("type") == "success" and rec.get("marketCap", 0) >= args.min_mcap:
-                            records.append(rec)
-                        elif rec.get("type") == "skip":
-                            skipped.append({
-                                "ticker": rec.get("ticker"),
-                                "name": rec.get("name", ""),
-                                "reason": rec.get("reason", "Unknown")
-                            })
-                except TimeoutError:
-                    print(f"[main] {futures[future]}: timeout (worker exceeded 5s)", flush=True)
-                except Exception as e:
-                    print(f"[main] {futures[future]}: {type(e).__name__}: {e}", flush=True)
-    finally:
-        _set_deepscan_pause(False)
+    for sym in tqdm(symbols, desc="Pulling fundamentals"):
+        rec = fetch_company(sym, args.include_goodwill, args.include_intangibles)
+        if rec:
+            if rec.get("type") == "success" and rec.get("marketCap", 0) >= args.min_mcap:
+                records.append(rec)
+            elif rec.get("type") == "skip":
+                skipped.append({
+                    "ticker": rec.get("ticker"),
+                    "name": rec.get("name", ""),
+                    "reason": rec.get("reason", "Unknown")
+                })
 
     if not records:
-        print("No qualifying records. Try increasing --limit or lowering --min-mcap.")
+        print("No qualifying records. Is the vault populated? Try lowering --min-mcap.")
         return
 
     df = pd.DataFrame(records)
