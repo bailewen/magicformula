@@ -428,18 +428,7 @@ def _compute_f_score(inc: list, bal: list, cf: list) -> Optional[int]:
         return f1+f2+f3+f4+f5+f6+f7+f8+f9
     except Exception as e:
         print(f"[_compute_f_score] {type(e).__name__}: {e}", flush=True)
-        return None
-      
-def fetch_from_vault(symbol, endpoint):
-    conn = get_conn()
-    row = conn.execute(
-        "SELECT json_blob FROM raw_json_vault WHERE ticker = ? AND endpoint = ?",
-        (symbol, endpoint)
-    ).fetchone()
-    conn.close()
-    if row is None:
-        return None
-    return json.loads(row[0]) 
+        return None   
   
 def pull_company(symbol: str, annual: bool = False, include_goodwill: bool = False,
                  include_intangibles: bool = False, compute_z: bool = False,
