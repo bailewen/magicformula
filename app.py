@@ -11,7 +11,6 @@ import random
 import pandas as pd
 import requests
 from datetime import datetime, timezone
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import Counter
 from statistics import median
 
@@ -434,8 +433,7 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
         exchanges_list = [x.strip() for x in exchanges_raw.split(",") if x.strip()]
         min_mcap = float(params.get("min_mcap", 50_000_000))
         limit = int(params.get("limit", 4000))  # covers full NASDAQ+NYSE+AMEX universe; CLI default is 400 (free-tier/quick-run sizing)
-        top_n = int(params.get("top_n", 30))
-        use_random = params.get("use_random", True)
+        top_n = int(params.get("top_n", 30))        
         use_annual = params.get("use_annual", False)
         check_debt_revenue = params.get("check_debt_revenue", False)
         check_cashflow = params.get("check_cashflow", False)
@@ -452,7 +450,7 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
             selected_countries = ["US"]
 
         # ── Step 1: Gather symbols ─────────────────────────────────────────
-        _push(q, {"type": "status", "message": "Gathering symbols from exchanges…", "step": 1})
+        _push(q, {"type": "status", "message": "Gathering symbols from vault…", "step": 1})
 
         all_symbols = mf.fetch_vault_tickers()
 
@@ -468,13 +466,13 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
             all_symbols = all_symbols[:limit]
 
         if not all_symbols:
-            _push(q, {"type": "error", "message": "No symbols found. Check exchange codes and market cap filter."})
+            _push(q, {"type": "error", "message": "No symbols found. The vault may be empty."})
             _finalize(scan_id, error="No symbols found.")
             return
 
         _push(q, {"type": "status", "message": f"Found {len(all_symbols)} symbols to analyze", "step": 1})
 
-        # ── Step 2: Pull fundamentals ──────────────────────────────────────
+ # ── Step 2: Pull fundamentals ──────────────────────────────────────
         _push(q, {"type": "status", "message": "Pulling fundamentals…", "step": 2})
 
         records = []
@@ -484,55 +482,43 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
         total = len(all_symbols)
         completed = 0
         skip_reasons = Counter()
+                       
+        for sym in all_symbols:                
+            completed += 1
+            pct = round(completed / total * 100)
 
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = {
-                executor.submit(mf.fetch_company_with_cache, sym, use_annual, include_goodwill,
-                                include_intangibles, compute_z, compute_f, api_key): sym
-                for sym in all_symbols
-            }
-            for future in as_completed(futures):
-                sym = futures[future]
-                completed += 1
-                pct = round(completed / total * 100)
+            if _scans[scan_id].get("cancelled"):
+                _push(q, {"type": "error", "message": "Scan cancelled."})
+                _finalize(scan_id, error="Cancelled")                    
+            return
 
-                if _scans[scan_id].get("cancelled"):
-                    _push(q, {"type": "error", "message": "Scan cancelled."})
-                    _finalize(scan_id, error="Cancelled")
-                    return
+            rec = mf.fetch_company(sym, include_goodwill, include_intangibles)
+                    
+            if rec and rec.get("type") == "success" and rec.get("marketCap", 0) >= min_mcap:
+                records.append(rec)
+                qualified += 1
+            elif rec and rec.get("type") == "skip":
+                filtered += 1
+                skip_reasons[rec.get("reason", "Unknown")] += 1
+            else:
+                skipped += 1  # returned None — missing/incomplete data
+               
 
-                try:
-                    rec = future.result(timeout=5)
-                    if rec and rec.get("type") == "success" and rec.get("marketCap", 0) >= min_mcap:
-                        records.append(rec)
-                        qualified += 1
-                    elif rec and rec.get("type") == "skip":
-                        filtered += 1
-                        skip_reasons[rec.get("reason", "Unknown")] += 1
-                    else:
-                        skipped += 1  # returned None — missing/incomplete data
-                except TimeoutError:
-                    print(f"[_run_scan] {sym}: timeout (worker exceeded 5s)", flush=True)
-                    skipped += 1
-                except Exception as e:
-                    print(f"[_run_scan] {sym}: {type(e).__name__}: {e}", flush=True)
-                    skipped += 1
-
-                _push(q, {
-                    "type": "progress",
-                    "symbol": sym,
-                    "completed": completed,
-                    "total": total,
-                    "pct": pct,
-                    "skipped": skipped,
-                    "filtered": filtered,
-                    "qualified": qualified,
-                })
+            _push(q, {
+                "type": "progress",
+                "symbol": sym,
+                "completed": completed,
+                "total": total,
+                "pct": pct,
+                "skipped": skipped,
+                "filtered": filtered,
+                "qualified": qualified,
+            })
 
         if not records:
             _push(q, {
                 "type": "error",
-                "message": "No qualifying stocks found. Try lowering min market cap or increasing scan limit.",
+                "message": "No qualifying stocks found. Try lowering min market cap or the vault may not yet be populated.",
                 "skip_reasons": dict(skip_reasons.most_common(10))
             })
             _finalize(scan_id, error="No qualifying stocks found.")
