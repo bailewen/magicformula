@@ -454,18 +454,7 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
         # ── Step 1: Gather symbols ─────────────────────────────────────────
         _push(q, {"type": "status", "message": "Gathering symbols from exchanges…", "step": 1})
 
-        all_symbols = []
-        for ex in exchanges_list:
-            try:
-                rows = mf.list_symbols(ex, min_mcap, selected_countries, api_key=api_key)
-                for r in rows:
-                    sym = r.get("symbol")
-                    if sym:
-                        all_symbols.append(sym)
-            except Exception as e:
-                _push(q, {"type": "warning", "message": f"Error fetching symbols from {ex}: {e}"})
-
-        all_symbols = list(dict.fromkeys(all_symbols))  # dedup, preserve order
+        all_symbols = mf.fetch_vault_tickers()
 
         if _scans[scan_id].get("cancelled"):
             _push(q, {"type": "error", "message": "Scan cancelled."})
