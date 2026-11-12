@@ -141,12 +141,18 @@ def stock_detail(ticker):
     ).fetchall()
 
     # get MF metrics from company_cache
-    mf_row = conn.execute(
-        "SELECT EY, ROC FROM company_cache WHERE ticker = ? ORDER BY last_updated DESC LIMIT 1",
+    rows = conn.execute(
+        "SELECT endpoint, json_blob, last_updated FROM raw_json_vault WHERE ticker = ?",
         (ticker,)
-    ).fetchone()
+    ).fetchall()
 
     conn.close()
+
+    rec = mf.fetch_company(ticker)
+    if rec and rec.get("type") == "success":
+        mf_row = (rec["EY"], rec["ROC"])
+    else:
+        mf_row = None
 
     if not rows:
         return render_template("stock.html", ticker=ticker, not_found=True)
