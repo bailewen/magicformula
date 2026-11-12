@@ -7,7 +7,6 @@ import os
 import sys
 import io
 import uuid
-import random
 import pandas as pd
 import requests
 from datetime import datetime, timezone
@@ -140,14 +139,9 @@ def stock_detail(ticker):
         (ticker,)
     ).fetchall()
 
-    # get MF metrics from company_cache
-    rows = conn.execute(
-        "SELECT endpoint, json_blob, last_updated FROM raw_json_vault WHERE ticker = ?",
-        (ticker,)
-    ).fetchall()
-
     conn.close()
 
+    # compute MF metrics fresh from the vault
     rec = mf.fetch_company(ticker)
     if rec and rec.get("type") == "success":
         mf_row = (rec["EY"], rec["ROC"])
@@ -156,7 +150,7 @@ def stock_detail(ticker):
 
     if not rows:
         return render_template("stock.html", ticker=ticker, not_found=True)
-
+   
     data = {row[0]: json.loads(row[1]) for row in rows}
     last_updated = rows[0][2]
 
@@ -438,7 +432,7 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
         exchanges_raw = params.get("exchanges", "NASDAQ,NYSE,AMEX")
         exchanges_list = [x.strip() for x in exchanges_raw.split(",") if x.strip()]
         min_mcap = float(params.get("min_mcap", 50_000_000))
-        limit = int(params.get("limit", 4000))  # covers full NASDAQ+NYSE+AMEX universe; CLI default is 400 (free-tier/quick-run sizing)
+        limit = int(params.get("limit", 5000))  # covers full NASDAQ+NYSE+AMEX universe; CLI default is 400 (free-tier/quick-run sizing)
         top_n = int(params.get("top_n", 30))        
         use_annual = params.get("use_annual", False)
         check_debt_revenue = params.get("check_debt_revenue", False)
@@ -464,10 +458,7 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
             _push(q, {"type": "error", "message": "Scan cancelled."})
             _finalize(scan_id, error="Cancelled")
             return
-
-        if use_random:
-            random.shuffle(all_symbols)
-
+            
         if limit and len(all_symbols) > limit:
             all_symbols = all_symbols[:limit]
 
@@ -496,7 +487,7 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
             if _scans[scan_id].get("cancelled"):
                 _push(q, {"type": "error", "message": "Scan cancelled."})
                 _finalize(scan_id, error="Cancelled")                    
-            return
+                return
 
             rec = mf.fetch_company(sym, include_goodwill, include_intangibles)
                     
