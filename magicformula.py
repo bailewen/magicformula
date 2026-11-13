@@ -108,12 +108,12 @@ REQUIRE_PROFITABLE_LATEST_QUARTER = False
 # Cap ROC when ranking: any ROC above this counts as equal (tied for best ROC
 # rank), so EY decides among them. The displayed ROC stays uncapped.
 # Set to None to rank on raw ROC (Greenblatt's original behavior).
-ROC_RANK_CAP = None   # e.g. 1.0 for 100%
+ROC_RANK_CAP = 1.0   # 100%; None to rank on raw ROC
 
 # Treat any ROC above this as suspicious and skip the ticker entirely
 # (previously a hard-coded 10.0 = 1000% "data error" check).
 # Set to None to disable; 10.0 restores the old behavior.
-ROC_EXCLUDE_ABOVE = 1.0   # 100%
+ROC_EXCLUDE_ABOVE = 10.0   # 1000%, the original data-error check; None to disable
 
 EXCLUDE_SECTORS = {
     "Financial Services",
