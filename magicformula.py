@@ -103,7 +103,7 @@ EXCLUDE_INDUSTRIES = {
 # Skip companies whose most recent quarter shows an operating loss, even if
 # trailing-12-month EBIT is positive (a one-off gain can mask ongoing losses).
 # Greenblatt uses trailing-12-month EBIT only, so set False to match that.
-REQUIRE_PROFITABLE_LATEST_QUARTER = True
+REQUIRE_PROFITABLE_LATEST_QUARTER = False
 
 EXCLUDE_SECTORS = {
     "Financial Services",
