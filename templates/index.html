@@ -52,22 +52,6 @@
         <input type="text" id="min-mcap" class="input" value="50,000,000">
       </section>
 
-      <!-- Scan limit -->
-      <section class="sidebar-section">
-        <div class="section-label">Scan Limit</div>
-        <div class="scan-mode">
-          <label><input type="radio" name="scan-mode" value="slider" checked> Slider</label>
-          <label><input type="radio" name="scan-mode" value="manual"> Manual</label>
-        </div>
-        <div id="limit-slider-wrap">
-          <input type="range" id="limit-slider" min="10" max="4000" value="4000" class="slider">
-          <div class="slider-val"><span id="limit-display">4000</span> stocks</div>
-        </div>
-        <div id="limit-manual-wrap" class="hidden">
-          <input type="number" id="limit-manual" class="input" value="400" min="10" max="10000" step="50">
-        </div>
-      </section>
-
       <!-- Top N -->
       <section class="sidebar-section">
         <label class="field-label" for="top-n">Top N Results to Display</label>
@@ -360,20 +344,6 @@ document.getElementById("all-t1").addEventListener("change", function() {
   document.querySelectorAll(".country-cb.t1").forEach(cb => cb.checked = this.checked);
 });
 
-document.getElementById("limit-slider").addEventListener("input", function() {
-  document.getElementById("limit-display").textContent = this.value;
-});
-
-document.querySelectorAll("input[name='scan-mode']").forEach(r => {
-  r.addEventListener("change", function() {
-    document.getElementById("limit-slider-wrap").classList.toggle("hidden", this.value !== "slider");
-    document.getElementById("limit-manual-wrap").classList.toggle("hidden", this.value !== "manual");
-  });
-});
-const initialMode = document.querySelector("input[name='scan-mode']:checked").value;
-document.getElementById("limit-slider-wrap").classList.toggle("hidden", initialMode !== "slider");
-document.getElementById("limit-manual-wrap").classList.toggle("hidden", initialMode !== "manual");
-
 // ── Advanced drawer (mobile) ───────────────────────────────────────────────
 const advancedToggle = document.getElementById("advanced-toggle");
 if (advancedToggle) {
@@ -388,11 +358,6 @@ if (advancedToggle) {
 
 // ── Collect params ─────────────────────────────────────────────────────────
 function collectParams() {
-  const scanMode = document.querySelector("input[name='scan-mode']:checked").value;
-  const limit = scanMode === "slider"
-    ? parseInt(document.getElementById("limit-slider").value)
-    : parseInt(document.getElementById("limit-manual").value);
-
   const includeIntl = document.getElementById("include-intl").checked;
   let countries = ["US"];
   if (includeIntl) {
@@ -406,7 +371,6 @@ function collectParams() {
     .map(cb => cb.value)
     .join(","),
       min_mcap: parseFloat(document.getElementById("min-mcap").value.replace(/,/g, "")) || 50000000,
-      limit,
       top_n: parseInt(document.getElementById("top-n").value),
       use_random: document.getElementById("use-random").checked,
       use_annual: document.getElementById("use-annual").checked,
