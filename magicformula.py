@@ -201,24 +201,6 @@ def list_symbols(ex: str, min_mcap: float = 50e6, countries: List[str] = None, a
 
     return filtered
 
-def fmp_profile(ticker: str, api_key: str = None) -> Dict[str, Any]:
-    prof = fmp_get(f"/profile/{ticker}", api_key=api_key) or []
-    return prof[0] if isinstance(prof, list) and prof else {}
-
-
-def fmp_income(ticker: str, annual: bool = False, api_key: str = None) -> List[Dict[str, Any]]:
-    if annual:
-        return fmp_get(f"/income-statement/{ticker}", {"period": "annual", "limit": 2}, api_key=api_key) or []
-    return fmp_get(f"/income-statement/{ticker}", {"period": "quarter", "limit": 4}, api_key=api_key) or []
-
-def fmp_balance(ticker: str, api_key: str = None) -> List[Dict[str, Any]]:
-    return fmp_get(f"/balance-sheet-statement/{ticker}", {"period": "quarter", "limit": 2}, api_key=api_key) or []
-
-def fmp_cashflow(ticker: str, annual: bool = False, api_key: str = None) -> List[Dict[str, Any]]:
-    limit = 2 if annual else 8
-    period = "annual" if annual else "quarter"
-    return fmp_get(f"/cash-flow-statement/{ticker}", {"period": period, "limit": limit}, api_key=api_key) or []
-
 def check_financial_health(symbol: str,
     check_debt_revenue: bool = False,
     check_cashflow_quality: bool = False,
