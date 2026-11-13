@@ -53,10 +53,8 @@ from typing import Dict, Any, List, Optional
 import requests
 import pandas as pd
 import datetime
-import random
 import sqlite3
 import json
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from collections import deque
 import threading
