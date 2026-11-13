@@ -124,7 +124,7 @@ ROC_EXCLUDE_ABOVE = None   # e.g. 10.0 = 1000%, the original data-error check
 # Capital (the ROC denominator) is never allowed below this: a company with
 # almost no tangible capital is ranked as if it had CAPITAL_FLOOR instead of
 # being skipped, so ROC stays finite (and, with ROC_RANK_CAP, ties for best).
-CAPITAL_FLOOR = 50e6   # $50M
+CAPITAL_FLOOR = 10e6   # $10M
 
 EXCLUDE_SECTORS = {
     "Financial Services",
