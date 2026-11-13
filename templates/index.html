@@ -346,13 +346,6 @@ function collectParams() {
     ? parseInt(document.getElementById("limit-slider").value)
     : parseInt(document.getElementById("limit-manual").value);
 
-  const includeIntl = document.getElementById("include-intl").checked;
-  let countries = ["US"];
-  if (includeIntl) {
-    countries = Array.from(document.querySelectorAll(".country-cb:checked"))
-      .map(cb => cb.dataset.code);
-  }
-
   return {
     api_key: document.getElementById("api_key") ? document.getElementById("api_key").value : "",
    exchanges: Array.from(document.querySelectorAll(".exchange-cb:checked"))
@@ -367,8 +360,7 @@ function collectParams() {
       check_debt_revenue: document.getElementById("check-debt-revenue").checked,
       check_cashflow: document.getElementById("check-cashflow").checked,
       compute_z: document.getElementById("compute-z").checked,
-      compute_f: document.getElementById("compute-f").checked,
-      selected_countries: countries,
+      compute_f: document.getElementById("compute-f").checked,      
   };
 }
 
