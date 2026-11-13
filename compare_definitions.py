@@ -65,12 +65,9 @@ def base_inputs(t, d, min_mcap):
     name = (prof.get("companyName") or "").lower()
     if any(x in name for x in ["preferred", "perpetual", "series a", "series b"]):
         return None
-    if mf._check_income_quality(inc[:4], require_quarters=True):
+    ebit, bad = mf._ttm_ebit(inc[:4])
+    if bad:
         return None
-    if mf.REQUIRE_PROFITABLE_LATEST_QUARTER and (inc[0].get("operatingIncome") or 0) <= 0:
-        return None
-
-    ebit = sum(q.get("operatingIncome") or 0 for q in inc[:4])
     L = lambda f: mf._latest(bal, f)
     tca, tcl, ppe, cash = L("totalCurrentAssets"), L("totalCurrentLiabilities"), \
         L("propertyPlantEquipmentNet"), L("cashAndShortTermInvestments")
@@ -151,12 +148,9 @@ def diagnose(t, d, min_mcap):
     name = (prof.get("companyName") or "").lower()
     if any(x in name for x in ["preferred", "perpetual", "series a", "series b"]):
         return "name looks like a preferred/series share"
-    bad = mf._check_income_quality(inc[:4], require_quarters=True)
+    ebit, bad = mf._ttm_ebit(inc[:4])
     if bad:
         return bad
-    if mf.REQUIRE_PROFITABLE_LATEST_QUARTER and (inc[0].get("operatingIncome") or 0) <= 0:
-        return "operating loss in most recent quarter"
-    ebit = sum(q.get("operatingIncome") or 0 for q in inc[:4])
     L = lambda f: mf._latest(bal, f)
     vals = {"tca": L("totalCurrentAssets"), "tcl": L("totalCurrentLiabilities"),
             "ppe": L("propertyPlantEquipmentNet"), "cash": L("cashAndShortTermInvestments")}

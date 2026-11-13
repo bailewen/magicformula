@@ -100,6 +100,12 @@ EXCLUDE_INDUSTRIES = {
     "Medical - Healthcare Plans",
 }
 
+# If exactly one of the four TTM quarters is an outlier (|operating income| >
+# its revenue, e.g. an impairment or one-off gain) and the other three are all
+# profitable, replace the outlier with the average of the other three instead
+# of letting it swamp (or discard) the whole year. Set False to disable.
+NORMALIZE_ONE_OFF_QUARTERS = True
+
 # Skip companies whose most recent quarter shows an operating loss, even if
 # trailing-12-month EBIT is positive (a one-off gain can mask ongoing losses).
 # Greenblatt uses trailing-12-month EBIT only, so set False to match that.
@@ -282,7 +288,8 @@ def _latest(items: List[Dict[str, Any]], field: str):
     return None if v in (None, "") else float(v)
 
 # -------------------- Income-statement sanity checks --------------------
-def _check_income_quality(periods: list, require_quarters: bool) -> Optional[str]:
+def _check_income_quality(periods: list, require_quarters: bool,
+                          skip_idx: Optional[int] = None) -> Optional[str]:
     """
     Sanity-check the income-statement periods that feed EBIT.
     Returns a skip reason string, or None if the data looks usable.
@@ -293,7 +300,9 @@ def _check_income_quality(periods: list, require_quarters: bool) -> Optional[str
     - For TTM (require_quarters), the periods must be four distinct,
       consecutive quarters - not annual rows or stale/duplicated data.
     """
-    for q in periods:
+    for i, q in enumerate(periods):
+        if i == skip_idx:
+            continue  # normalized one-off quarter, handled by _ttm_ebit
         oi = q.get("operatingIncome")
         rev = q.get("revenue")
         if oi is not None and rev is not None and rev > 0 and oi > rev:
@@ -316,6 +325,35 @@ def _check_income_quality(periods: list, require_quarters: bool) -> Optional[str
             if not 60 <= gap <= 125:
                 return f"Quarters not consecutive (gap of {gap} days)"
     return None
+
+def _one_off_quarter(quarters: list) -> Optional[int]:
+    """Index of a single outlier quarter (|operating income| > revenue) when the
+    other three quarters are all profitable; otherwise None."""
+    out = [i for i, q in enumerate(quarters)
+           if (q.get("revenue") or 0) > 0 and q.get("operatingIncome") is not None
+           and abs(q["operatingIncome"]) > q["revenue"]]
+    if len(out) != 1:
+        return None
+    others = [q.get("operatingIncome") for j, q in enumerate(quarters) if j != out[0]]
+    if any(o is None or o <= 0 for o in others):
+        return None
+    return out[0]
+
+
+def _ttm_ebit(quarters: list):
+    """Trailing-four-quarter EBIT. Returns (ebit, None) or (None, skip_reason)."""
+    one_off = _one_off_quarter(quarters) if NORMALIZE_ONE_OFF_QUARTERS else None
+    bad = _check_income_quality(quarters, require_quarters=True, skip_idx=one_off)
+    if bad:
+        return None, bad
+    ois = [q.get("operatingIncome") or 0 for q in quarters]
+    if one_off is not None:
+        others = [o for j, o in enumerate(ois) if j != one_off]
+        ois[one_off] = sum(others) / len(others)
+    if REQUIRE_PROFITABLE_LATEST_QUARTER and ois[0] <= 0:
+        return None, "Operating loss in most recent quarter"
+    return sum(ois), None
+
 
 # -------------------- Field helpers --------------------
 def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_goodwill: bool = False,
@@ -342,12 +380,9 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_
             return {"reason": bad}
         ebit = _latest(inc, "operatingIncome")
     elif inc and len(inc) >= 4:
-        bad = _check_income_quality(inc[:4], require_quarters=True)
+        ebit, bad = _ttm_ebit(inc[:4])
         if bad:
             return {"reason": bad}
-        if REQUIRE_PROFITABLE_LATEST_QUARTER and (inc[0].get("operatingIncome") or 0) <= 0:
-            return {"reason": "Operating loss in most recent quarter"}
-        ebit = sum(q.get("operatingIncome") or 0 for q in inc[:4])
     else:
         ebit = None
 
