@@ -332,6 +332,14 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_
     if debt is None:
         debt = (_latest(bal, "shortTermDebt") or 0.0) + (_latest(bal, "longTermDebt") or 0.0)
     short_debt = _latest(bal, "shortTermDebt") or 0.0
+
+    # Sanity check: reported totalDebt can't be smaller than its own components.
+    # (FMP has briefly served balance sheets with long-term debt missing, which
+    # understates EV and inflates EY - e.g. XPOF on 2026-11-10.)
+    long_debt = _latest(bal, "longTermDebt") or 0.0
+    if debt is not None and (short_debt + long_debt) > debt * 1.01 + 1e6:
+        return {"reason": (f"totalDebt ({debt:,.0f}) below short+long-term debt "
+                           f"({short_debt + long_debt:,.0f}) - inconsistent balance sheet")}
  
     mcap = prof.get("mktCap") if prof.get("mktCap") is not None else prof.get("marketCap")
     try:
