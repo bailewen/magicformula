@@ -93,6 +93,18 @@ except Exception:  # pragma: no cover
 FMP_BASE = "https://financialmodelingprep.com/api/v3"
 FMP_KEY  = os.getenv("FMP_API_KEY", "")
 
+# Industries excluded even though FMP files them under a non-financial sector.
+# Health insurers hold large cash/investment portfolios against claims, which
+# distorts EV and capital the same way it does for other financials.
+EXCLUDE_INDUSTRIES = {
+    "Medical - Healthcare Plans",
+}
+
+# Skip companies whose most recent quarter shows an operating loss, even if
+# trailing-12-month EBIT is positive (a one-off gain can mask ongoing losses).
+# Greenblatt uses trailing-12-month EBIT only, so set False to match that.
+REQUIRE_PROFITABLE_LATEST_QUARTER = True
+
 EXCLUDE_SECTORS = {
     "Financial Services",
     "Financial",
@@ -307,6 +319,9 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_
     if prof.get("sector") in EXCLUDE_SECTORS:
         return None
 
+    if prof.get("industry") in EXCLUDE_INDUSTRIES:
+        return None
+
     name = prof.get("companyName", "").lower()
     if any(x in name for x in ["preferred", "perpetual", "series a", "series b"]):
         return None
@@ -320,6 +335,8 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_
         bad = _check_income_quality(inc[:4], require_quarters=True)
         if bad:
             return {"reason": bad}
+        if REQUIRE_PROFITABLE_LATEST_QUARTER and (inc[0].get("operatingIncome") or 0) <= 0:
+            return {"reason": "Operating loss in most recent quarter"}
         ebit = sum(q.get("operatingIncome") or 0 for q in inc[:4])
     else:
         ebit = None
@@ -758,7 +775,8 @@ def fetch_vault_tickers():
 
     return [row[0] for row in rows]
 
-def fetch_company(symbol, include_goodwill=False, include_intangibles=False):
+def fetch_company(symbol, include_goodwill=False, include_intangibles=False,
+                  compute_z=False, compute_f=False):
 
     try:
         prof = fetch_blob(symbol, "profile")
@@ -776,6 +794,13 @@ def fetch_company(symbol, include_goodwill=False, include_intangibles=False):
         if "reason" in result:
             return {"type": "skip", "ticker": symbol, "name": prof.get("companyName", symbol),
                     "reason": result["reason"]}
+
+        if compute_z:
+            result["ZScore"] = _compute_z_score(prof, inc, bal)
+        if compute_f:
+            cf = fetch_blob(symbol, "cash-flow-statement")
+            result["FScore"] = _compute_f_score(inc, bal, cf) if cf else None
+
         return {"type": "success", "ticker": symbol, **result}
 
     except Exception as e:
@@ -875,7 +900,8 @@ def main():
     records = []
     skipped = []
     for sym in tqdm(symbols, desc="Pulling fundamentals"):
-        rec = fetch_company(sym, args.include_goodwill, args.include_intangibles)
+        rec = fetch_company(sym, args.include_goodwill, args.include_intangibles,
+                            args.zscore, args.fscore)
         if rec:
             if rec.get("type") == "success" and rec.get("marketCap", 0) >= args.min_mcap:
                 records.append(rec)

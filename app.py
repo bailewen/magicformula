@@ -485,7 +485,7 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
                 _finalize(scan_id, error="Cancelled")                    
                 return
 
-            rec = mf.fetch_company(sym, include_goodwill, include_intangibles)
+            rec = mf.fetch_company(sym, include_goodwill, include_intangibles, compute_z, compute_f)
                     
             if rec and rec.get("type") == "success" and rec.get("marketCap", 0) >= min_mcap:
                 records.append(rec)
