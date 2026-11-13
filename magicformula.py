@@ -105,6 +105,11 @@ EXCLUDE_INDUSTRIES = {
 # Greenblatt uses trailing-12-month EBIT only, so set False to match that.
 REQUIRE_PROFITABLE_LATEST_QUARTER = False
 
+# Cap ROC when ranking: any ROC above this counts as equal (tied for best ROC
+# rank), so EY decides among them. The displayed ROC stays uncapped.
+# Set to None to rank on raw ROC (Greenblatt's original behavior).
+ROC_RANK_CAP = 1.0   # 100%
+
 EXCLUDE_SECTORS = {
     "Financial Services",
     "Financial",
@@ -837,7 +842,8 @@ def fetch_company_with_cache(symbol: str, annual: bool = False, include_goodwill
 def magic_formula_rank(df: pd.DataFrame) -> pd.DataFrame:
     df = df.dropna(subset=["EY", "ROC"]).copy()
     df["EY_rank"] = df["EY"].rank(ascending=False, method="min")
-    df["ROC_rank"] = df["ROC"].rank(ascending=False, method="min")
+    roc_for_rank = df["ROC"].clip(upper=ROC_RANK_CAP) if ROC_RANK_CAP else df["ROC"]
+    df["ROC_rank"] = roc_for_rank.rank(ascending=False, method="min")
     df["MF_score"] = df["EY_rank"] + df["ROC_rank"]
     return df.sort_values(["MF_score", "EY_rank", "ROC_rank"]) 
 
