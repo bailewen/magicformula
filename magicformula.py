@@ -108,7 +108,12 @@ REQUIRE_PROFITABLE_LATEST_QUARTER = False
 # Cap ROC when ranking: any ROC above this counts as equal (tied for best ROC
 # rank), so EY decides among them. The displayed ROC stays uncapped.
 # Set to None to rank on raw ROC (Greenblatt's original behavior).
-ROC_RANK_CAP = 1.0   # 100%
+ROC_RANK_CAP = None   # e.g. 1.0 for 100%
+
+# Treat any ROC above this as suspicious and skip the ticker entirely
+# (previously a hard-coded 10.0 = 1000% "data error" check).
+# Set to None to disable; 10.0 restores the old behavior.
+ROC_EXCLUDE_ABOVE = 1.0   # 100%
 
 EXCLUDE_SECTORS = {
     "Financial Services",
@@ -400,8 +405,8 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_
     ey  = ebit / ev
     roc = ebit / capital
 
-    if roc > 10.0:
-        return {"reason": "ROC > 1000% (data error)"}
+    if ROC_EXCLUDE_ABOVE is not None and roc > ROC_EXCLUDE_ABOVE:
+        return {"reason": f"ROC > {ROC_EXCLUDE_ABOVE:.0%} (suspicious)"}
 
     return {
         "name":      company_name,
