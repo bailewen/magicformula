@@ -432,7 +432,6 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
         exchanges_raw = params.get("exchanges", "NASDAQ,NYSE,AMEX")
         exchanges_list = [x.strip() for x in exchanges_raw.split(",") if x.strip()]
         min_mcap = float(params.get("min_mcap", 50_000_000))
-        limit = int(params.get("limit", 5000))  # covers full NASDAQ+NYSE+AMEX universe; CLI default is 400 (free-tier/quick-run sizing)
         top_n = int(params.get("top_n", 30))        
         use_annual = params.get("use_annual", False)
         check_debt_revenue = params.get("check_debt_revenue", False)
@@ -459,9 +458,6 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
             _finalize(scan_id, error="Cancelled")
             return
             
-        if limit and len(all_symbols) > limit:
-            all_symbols = all_symbols[:limit]
-
         if not all_symbols:
             _push(q, {"type": "error", "message": "No symbols found. The vault may be empty."})
             _finalize(scan_id, error="No symbols found.")
