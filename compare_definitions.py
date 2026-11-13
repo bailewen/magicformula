@@ -113,10 +113,10 @@ def rank_variant(rows, v, cap):
     recs = []
     for r in rows:
         c = capital(r, v)
-        if c is None or c < 10e6:
+        if c is None:
             continue
-        roc = r["ebit"] / c
-        if roc > 10.0:
+        roc = r["ebit"] / max(c, mf.CAPITAL_FLOOR)
+        if mf.ROC_EXCLUDE_ABOVE is not None and roc > mf.ROC_EXCLUDE_ABOVE:
             continue
         recs.append({"ticker": r["ticker"], "EY": r["ebit"] / r["ev"], "ROC": roc})
     df = pd.DataFrame(recs)
@@ -178,11 +178,9 @@ def diagnose(t, d, min_mcap):
     if ebit < 0:
         return f"negative TTM EBIT ({ebit / 1e6:.1f}M)"
     nwc = max((vals["tca"] - vals["cash"]) - (vals["tcl"] - std), 0)
-    cap = nwc + vals["ppe"]
-    if cap < 10e6:
-        return f"capital {cap / 1e6:.1f}M below $10M floor"
-    if ebit / cap > 10.0:
-        return "ROC above 1000%"
+    cap = max(nwc + vals["ppe"], mf.CAPITAL_FLOOR)
+    if mf.ROC_EXCLUDE_ABOVE is not None and ebit / cap > mf.ROC_EXCLUDE_ABOVE:
+        return f"ROC above {mf.ROC_EXCLUDE_ABOVE:.0%}"
     return None
 
 

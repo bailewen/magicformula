@@ -119,7 +119,12 @@ ROC_RANK_CAP = 1.0   # 100%; None to rank on raw ROC
 # Treat any ROC above this as suspicious and skip the ticker entirely
 # (previously a hard-coded 10.0 = 1000% "data error" check).
 # Set to None to disable; 10.0 restores the old behavior.
-ROC_EXCLUDE_ABOVE = 10.0   # 1000%, the original data-error check; None to disable
+ROC_EXCLUDE_ABOVE = None   # e.g. 10.0 = 1000%, the original data-error check
+
+# Capital (the ROC denominator) is never allowed below this: a company with
+# almost no tangible capital is ranked as if it had CAPITAL_FLOOR instead of
+# being skipped, so ROC stays finite (and, with ROC_RANK_CAP, ties for best).
+CAPITAL_FLOOR = 50e6   # $50M
 
 EXCLUDE_SECTORS = {
     "Financial Services",
@@ -430,10 +435,7 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_
         return {"reason": "Negative or zero EV"}
     if ev < mcap * 0.01:
         return {"reason": "EV implausibly small vs market cap (data error)"}
-    if capital <= 0:
-        return {"reason": "Negative or zero capital"}
-    if capital < 10e6:
-        return {"reason": "Capital < $10M"}
+    capital = max(capital, CAPITAL_FLOOR)
     if ebit < 0:
         return {"reason": "Negative EBIT"}
 
