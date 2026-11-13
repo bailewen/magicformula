@@ -132,6 +132,66 @@ def rank_variant(rows, v, cap):
     return df.sort_values(["MF_score", "EY_rank", "ROC_rank"]).reset_index(drop=True)
 
 
+def diagnose(t, d, min_mcap):
+    """Return the first reason a ticker is filtered out under the baseline, or None."""
+    if not d:
+        return "not in vault"
+    prof, inc, bal = d.get("profile"), d.get("income-statement"), d.get("balance-sheet-statement")
+    if not prof:
+        return "no profile blob"
+    if not inc or len(inc) < 4:
+        return f"fewer than 4 quarters of income data ({len(inc or [])})"
+    if not bal:
+        return "no balance-sheet blob"
+    prof = prof[0]
+    if prof.get("sector") in mf.EXCLUDE_SECTORS:
+        return f"excluded sector: {prof.get('sector')}"
+    if prof.get("industry") in mf.EXCLUDE_INDUSTRIES:
+        return f"excluded industry: {prof.get('industry')}"
+    name = (prof.get("companyName") or "").lower()
+    if any(x in name for x in ["preferred", "perpetual", "series a", "series b"]):
+        return "name looks like a preferred/series share"
+    bad = mf._check_income_quality(inc[:4], require_quarters=True)
+    if bad:
+        return bad
+    if mf.REQUIRE_PROFITABLE_LATEST_QUARTER and (inc[0].get("operatingIncome") or 0) <= 0:
+        return "operating loss in most recent quarter"
+    ebit = sum(q.get("operatingIncome") or 0 for q in inc[:4])
+    L = lambda f: mf._latest(bal, f)
+    vals = {"tca": L("totalCurrentAssets"), "tcl": L("totalCurrentLiabilities"),
+            "ppe": L("propertyPlantEquipmentNet"), "cash": L("cashAndShortTermInvestments")}
+    missing = [k for k, v in vals.items() if v is None]
+    mcap = prof.get("mktCap") if prof.get("mktCap") is not None else prof.get("marketCap")
+    try:
+        mcap = float(mcap) if mcap is not None else None
+    except Exception:
+        mcap = None
+    if mcap is None:
+        missing.append("mcap")
+    if missing:
+        return "missing fields: " + ", ".join(missing)
+    if mcap < min_mcap:
+        return f"market cap {mcap / 1e6:.0f}M below minimum"
+    debt = L("totalDebt")
+    std, ltd = L("shortTermDebt") or 0.0, L("longTermDebt") or 0.0
+    if debt is None:
+        debt = std + ltd
+    if (std + ltd) > debt * 1.01 + 1e6:
+        return "totalDebt below short+long-term debt"
+    ev = mcap + debt - vals["cash"]
+    if ev <= 0 or ev < mcap * 0.01:
+        return f"EV too small/negative ({ev / 1e6:.0f}M vs mcap {mcap / 1e6:.0f}M)"
+    if ebit < 0:
+        return f"negative TTM EBIT ({ebit / 1e6:.1f}M)"
+    nwc = max((vals["tca"] - vals["cash"]) - (vals["tcl"] - std), 0)
+    cap = nwc + vals["ppe"]
+    if cap < 10e6:
+        return f"capital {cap / 1e6:.1f}M below $10M floor"
+    if ebit / cap > 10.0:
+        return "ROC above 1000%"
+    return None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default=str(mf.DB_PATH))
@@ -166,7 +226,10 @@ def main():
         pos = {t: i + 1 for i, t in enumerate(baseline["ticker"])}
         print("Official picks under baseline + 100% cap (rank, or '-' if filtered out):")
         for t in sorted(OFFICIAL, key=lambda x: pos.get(x, 10**6)):
-            print(f"  {t:6} {pos.get(t, '-')}")
+            if t in pos:
+                print(f"  {t:6} {pos[t]}")
+            else:
+                print(f"  {t:6} -  ({diagnose(t, data.get(t), args.min_mcap) or 'passes filters?'})")
 
 
 if __name__ == "__main__":
