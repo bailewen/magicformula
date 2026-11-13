@@ -313,14 +313,6 @@ document.getElementById("min-mcap").addEventListener("input", function() {
     }
 });
 
-document.getElementById("include-intl").addEventListener("change", function() {
-  document.getElementById("country-panel").classList.toggle("hidden", !this.checked);
-});
-
-document.getElementById("all-t1").addEventListener("change", function() {
-  document.querySelectorAll(".country-cb.t1").forEach(cb => cb.checked = this.checked);
-});
-
 document.getElementById("limit-slider").addEventListener("input", function() {
   document.getElementById("limit-display").textContent = this.value;
 });
