@@ -259,6 +259,42 @@ def _latest(items: List[Dict[str, Any]], field: str):
     v = items[0].get(field)
     return None if v in (None, "") else float(v)
 
+# -------------------- Income-statement sanity checks --------------------
+def _check_income_quality(periods: list, require_quarters: bool) -> Optional[str]:
+    """
+    Sanity-check the income-statement periods that feed EBIT.
+    Returns a skip reason string, or None if the data looks usable.
+
+    - A period whose operating income exceeds its revenue (margin > 100%) is
+      almost always a one-off gain booked in operatingIncome (or a data
+      error); it would badly inflate EBIT, EY and ROC.
+    - For TTM (require_quarters), the periods must be four distinct,
+      consecutive quarters - not annual rows or stale/duplicated data.
+    """
+    for q in periods:
+        oi = q.get("operatingIncome")
+        rev = q.get("revenue")
+        if oi is not None and rev is not None and rev > 0 and oi > rev:
+            return (f"Operating income exceeds revenue in {q.get('date', '?')} "
+                    f"({oi:,.0f} vs {rev:,.0f}) - likely one-off gain/data error")
+
+    if require_quarters:
+        for q in periods:
+            per = q.get("period")
+            if per is not None and not str(per).upper().startswith("Q"):
+                return f"Non-quarterly period '{per}' in TTM data (stale vault row?)"
+        try:
+            dates = [datetime.datetime.strptime(q["date"], "%Y-%m-%d") for q in periods]
+        except Exception:
+            return None  # no usable dates - can't verify; other checks still apply
+        if len(set(dates)) != len(dates):
+            return "Duplicate quarter dates in TTM data"
+        for newer, older in zip(dates, dates[1:]):
+            gap = (newer - older).days
+            if not 60 <= gap <= 125:
+                return f"Quarters not consecutive (gap of {gap} days)"
+    return None
+
 # -------------------- Field helpers --------------------
 def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_goodwill: bool = False,
                             include_intangibles: bool = False) -> Optional[Dict[str, Any]]:
@@ -276,8 +312,14 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_
         return None
 
     if annual:
+        bad = _check_income_quality(inc[:1], require_quarters=False)
+        if bad:
+            return {"reason": bad}
         ebit = _latest(inc, "operatingIncome")
     elif inc and len(inc) >= 4:
+        bad = _check_income_quality(inc[:4], require_quarters=True)
+        if bad:
+            return {"reason": bad}
         ebit = sum(q.get("operatingIncome") or 0 for q in inc[:4])
     else:
         ebit = None
