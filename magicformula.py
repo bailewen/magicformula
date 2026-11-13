@@ -852,33 +852,6 @@ def fetch_company(symbol, include_goodwill=False, include_intangibles=False,
 
     except Exception as e:
         return {"type": "skip", "ticker": symbol, "name": symbol, "reason": f"Exception: {e}"}
-
-# -----------------deprecation pending-------------------
-def fetch_company_with_cache(symbol: str, annual: bool = False, include_goodwill: bool = False,
-                             include_intangibles: bool = False, compute_z: bool = False,
-                             compute_f: bool = False, api_key: str = None) -> Optional[Dict[str, Any]]:
-
-    period = "annual" if annual else "ttm"
-    if include_goodwill:
-        period += "_g"
-    if include_intangibles:
-        period += "_i"
-    if compute_z:
-        period += "_z"
-    if compute_f:
-        period += "_f"
-
-    # Try to fetch from cache first
-    cached = db_fetch(symbol, period)
-    if cached:
-        return cached
-    rec = pull_company(symbol, annual, include_goodwill, include_intangibles,
-                       compute_z=compute_z, compute_f=compute_f, api_key=api_key)
-    # Cache successful records
-    if rec and rec.get("type") == "success":
-        db_upsert(rec, period)
-    return rec
-
 # -------------------- Ranking --------------------
 
 def magic_formula_rank(df: pd.DataFrame) -> pd.DataFrame:
