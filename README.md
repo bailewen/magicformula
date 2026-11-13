@@ -8,7 +8,7 @@ There is a stock screener based on Joel Greenblatt's "magic formula" and a singl
 
 There are 3 main parts:
 
-- A screener that scans the markets for value stocks
+- A screener that scans US markets for value stocks
 - A deep scan that saves JSON blobs for single ticker lookup
 - A webpage hosted at [magic.omarbelove.com](https://magic.omarbelove.com)
 

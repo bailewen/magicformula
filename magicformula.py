@@ -93,6 +93,39 @@ except Exception:  # pragma: no cover
 FMP_BASE = "https://financialmodelingprep.com/api/v3"
 FMP_KEY  = os.getenv("FMP_API_KEY", "")
 
+# Industries excluded even though FMP files them under a non-financial sector.
+# Health insurers hold large cash/investment portfolios against claims, which
+# distorts EV and capital the same way it does for other financials.
+EXCLUDE_INDUSTRIES = {
+    "Medical - Healthcare Plans",
+}
+
+# If exactly one of the four TTM quarters is an outlier (|operating income| >
+# its revenue, e.g. an impairment or one-off gain) and the other three are all
+# profitable, replace the outlier with the average of the other three instead
+# of letting it swamp (or discard) the whole year. Set False to disable.
+NORMALIZE_ONE_OFF_QUARTERS = True
+
+# Skip companies whose most recent quarter shows an operating loss, even if
+# trailing-12-month EBIT is positive (a one-off gain can mask ongoing losses).
+# Greenblatt uses trailing-12-month EBIT only, so set False to match that.
+REQUIRE_PROFITABLE_LATEST_QUARTER = False
+
+# Cap ROC when ranking: any ROC above this counts as equal (tied for best ROC
+# rank), so EY decides among them. The displayed ROC stays uncapped.
+# Set to None to rank on raw ROC (Greenblatt's original behavior).
+ROC_RANK_CAP = 1.0   # 100%; None to rank on raw ROC
+
+# Treat any ROC above this as suspicious and skip the ticker entirely
+# (previously a hard-coded 10.0 = 1000% "data error" check).
+# Set to None to disable; 10.0 restores the old behavior.
+ROC_EXCLUDE_ABOVE = None   # e.g. 10.0 = 1000%, the original data-error check
+
+# Capital (the ROC denominator) is never allowed below this: a company with
+# almost no tangible capital is ranked as if it had CAPITAL_FLOOR instead of
+# being skipped, so ROC stays finite (and, with ROC_RANK_CAP, ties for best).
+CAPITAL_FLOOR = 10e6   # $10M
+
 EXCLUDE_SECTORS = {
     "Financial Services",
     "Financial",
@@ -259,6 +292,74 @@ def _latest(items: List[Dict[str, Any]], field: str):
     v = items[0].get(field)
     return None if v in (None, "") else float(v)
 
+# -------------------- Income-statement sanity checks --------------------
+def _check_income_quality(periods: list, require_quarters: bool,
+                          skip_idx: Optional[int] = None) -> Optional[str]:
+    """
+    Sanity-check the income-statement periods that feed EBIT.
+    Returns a skip reason string, or None if the data looks usable.
+
+    - A period whose operating income exceeds its revenue (margin > 100%) is
+      almost always a one-off gain booked in operatingIncome (or a data
+      error); it would badly inflate EBIT, EY and ROC.
+    - For TTM (require_quarters), the periods must be four distinct,
+      consecutive quarters - not annual rows or stale/duplicated data.
+    """
+    for i, q in enumerate(periods):
+        if i == skip_idx:
+            continue  # normalized one-off quarter, handled by _ttm_ebit
+        oi = q.get("operatingIncome")
+        rev = q.get("revenue")
+        if oi is not None and rev is not None and rev > 0 and oi > rev:
+            return (f"Operating income exceeds revenue in {q.get('date', '?')} "
+                    f"({oi:,.0f} vs {rev:,.0f}) - likely one-off gain/data error")
+
+    if require_quarters:
+        for q in periods:
+            per = q.get("period")
+            if per is not None and not str(per).upper().startswith("Q"):
+                return f"Non-quarterly period '{per}' in TTM data (stale vault row?)"
+        try:
+            dates = [datetime.datetime.strptime(q["date"], "%Y-%m-%d") for q in periods]
+        except Exception:
+            return None  # no usable dates - can't verify; other checks still apply
+        if len(set(dates)) != len(dates):
+            return "Duplicate quarter dates in TTM data"
+        for newer, older in zip(dates, dates[1:]):
+            gap = (newer - older).days
+            if not 60 <= gap <= 125:
+                return f"Quarters not consecutive (gap of {gap} days)"
+    return None
+
+def _one_off_quarter(quarters: list) -> Optional[int]:
+    """Index of a single outlier quarter (|operating income| > revenue) when the
+    other three quarters are all profitable; otherwise None."""
+    out = [i for i, q in enumerate(quarters)
+           if (q.get("revenue") or 0) > 0 and q.get("operatingIncome") is not None
+           and abs(q["operatingIncome"]) > q["revenue"]]
+    if len(out) != 1:
+        return None
+    others = [q.get("operatingIncome") for j, q in enumerate(quarters) if j != out[0]]
+    if any(o is None or o <= 0 for o in others):
+        return None
+    return out[0]
+
+
+def _ttm_ebit(quarters: list):
+    """Trailing-four-quarter EBIT. Returns (ebit, None) or (None, skip_reason)."""
+    one_off = _one_off_quarter(quarters) if NORMALIZE_ONE_OFF_QUARTERS else None
+    bad = _check_income_quality(quarters, require_quarters=True, skip_idx=one_off)
+    if bad:
+        return None, bad
+    ois = [q.get("operatingIncome") or 0 for q in quarters]
+    if one_off is not None:
+        others = [o for j, o in enumerate(ois) if j != one_off]
+        ois[one_off] = sum(others) / len(others)
+    if REQUIRE_PROFITABLE_LATEST_QUARTER and ois[0] <= 0:
+        return None, "Operating loss in most recent quarter"
+    return sum(ois), None
+
+
 # -------------------- Field helpers --------------------
 def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_goodwill: bool = False,
                             include_intangibles: bool = False) -> Optional[Dict[str, Any]]:
@@ -271,14 +372,22 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_
     if prof.get("sector") in EXCLUDE_SECTORS:
         return None
 
+    if prof.get("industry") in EXCLUDE_INDUSTRIES:
+        return None
+
     name = prof.get("companyName", "").lower()
     if any(x in name for x in ["preferred", "perpetual", "series a", "series b"]):
         return None
 
     if annual:
+        bad = _check_income_quality(inc[:1], require_quarters=False)
+        if bad:
+            return {"reason": bad}
         ebit = _latest(inc, "operatingIncome")
     elif inc and len(inc) >= 4:
-        ebit = sum(q.get("operatingIncome") or 0 for q in inc[:4])
+        ebit, bad = _ttm_ebit(inc[:4])
+        if bad:
+            return {"reason": bad}
     else:
         ebit = None
 
@@ -290,6 +399,14 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_
     if debt is None:
         debt = (_latest(bal, "shortTermDebt") or 0.0) + (_latest(bal, "longTermDebt") or 0.0)
     short_debt = _latest(bal, "shortTermDebt") or 0.0
+
+    # Sanity check: reported totalDebt can't be smaller than its own components.
+    # (FMP has briefly served balance sheets with long-term debt missing, which
+    # understates EV and inflates EY - e.g. XPOF on 2026-11-10.)
+    long_debt = _latest(bal, "longTermDebt") or 0.0
+    if debt is not None and (short_debt + long_debt) > debt * 1.01 + 1e6:
+        return {"reason": (f"totalDebt ({debt:,.0f}) below short+long-term debt "
+                           f"({short_debt + long_debt:,.0f}) - inconsistent balance sheet")}
  
     mcap = prof.get("mktCap") if prof.get("mktCap") is not None else prof.get("marketCap")
     try:
@@ -318,18 +435,15 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_
         return {"reason": "Negative or zero EV"}
     if ev < mcap * 0.01:
         return {"reason": "EV implausibly small vs market cap (data error)"}
-    if capital <= 0:
-        return {"reason": "Negative or zero capital"}
-    if capital < 10e6:
-        return {"reason": "Capital < $10M"}
+    capital = max(capital, CAPITAL_FLOOR)
     if ebit < 0:
         return {"reason": "Negative EBIT"}
 
     ey  = ebit / ev
     roc = ebit / capital
 
-    if roc > 10.0:
-        return {"reason": "ROC > 1000% (data error)"}
+    if ROC_EXCLUDE_ABOVE is not None and roc > ROC_EXCLUDE_ABOVE:
+        return {"reason": f"ROC > {ROC_EXCLUDE_ABOVE:.0%} (suspicious)"}
 
     return {
         "name":      company_name,
@@ -428,8 +542,8 @@ def _compute_f_score(inc: list, bal: list, cf: list) -> Optional[int]:
         return f1+f2+f3+f4+f5+f6+f7+f8+f9
     except Exception as e:
         print(f"[_compute_f_score] {type(e).__name__}: {e}", flush=True)
-        return None
-
+        return None   
+  
 def pull_company(symbol: str, annual: bool = False, include_goodwill: bool = False,
                  include_intangibles: bool = False, compute_z: bool = False,
                  compute_f: bool = False, api_key: str = None) -> Optional[Dict[str, Any]]:
@@ -446,9 +560,7 @@ def pull_company(symbol: str, annual: bool = False, include_goodwill: bool = Fal
         if result and "reason" not in result:
             if compute_z:
                 result["ZScore"] = _compute_z_score(prof, inc, bal)
-        #        if result["ZScore"] is not None and result["ZScore"] < 2.99:
-        #            return {"type": "skip", "ticker": symbol, "name": prof.get("companyName", symbol),
-        #                    "reason": f"Z-score {result['ZScore']} below 2.99"}
+
             if compute_f:
                 cf = None
                 conn = get_conn()
@@ -462,9 +574,6 @@ def pull_company(symbol: str, annual: bool = False, include_goodwill: bool = Fal
                 else:
                     cf = fmp_cashflow(symbol, annual, api_key=api_key)
                 result["FScore"] = _compute_f_score(inc, bal, cf)
-        #       if result["FScore"] is None or result["FScore"] < 3:
-        #            return {"type": "skip", "ticker": symbol, "name": prof.get("companyName", symbol),
-        #                    "reason": f"F-score {result['FScore']} below 3"}
 
         if result is None:
             return None
@@ -687,7 +796,64 @@ def _set_deepscan_pause(paused: bool) -> None:
     conn.commit()
     conn.close()
 
+# -------------------- Company Metrics --------------------
+def fetch_blob(symbol, endpoint):
+    conn = get_conn()
+    try:
+        row = conn.execute(
+            "SELECT json_blob FROM raw_json_vault WHERE ticker = ? AND endpoint = ?",
+            (symbol, endpoint)
+        ).fetchone()
+    finally:
+        conn.close()
+        
+    if row is None:
+        return None
+    return json.loads(row[0])
 
+def fetch_vault_tickers():
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT ticker FROM raw_json_vault ",            
+        ).fetchall()
+    finally:
+        conn.close()        
+
+    return [row[0] for row in rows]
+
+def fetch_company(symbol, include_goodwill=False, include_intangibles=False,
+                  compute_z=False, compute_f=False):
+
+    try:
+        prof = fetch_blob(symbol, "profile")
+        inc  = fetch_blob(symbol, "income-statement")
+        bal  = fetch_blob(symbol, "balance-sheet-statement")
+
+        if not prof or not inc or not bal:
+            return {"type": "skip", "ticker": symbol, "name": symbol, "reason": "Not in vault"}
+
+        prof = prof[0]
+        result = _compute_mf_metrics(prof, inc, bal, False, include_goodwill, include_intangibles)
+
+        if result is None:
+            return None
+        if "reason" in result:
+            return {"type": "skip", "ticker": symbol, "name": prof.get("companyName", symbol),
+                    "reason": result["reason"]}
+
+        if compute_z:
+            result["ZScore"] = _compute_z_score(prof, inc, bal)
+        if compute_f:
+            cf = fetch_blob(symbol, "cash-flow-statement")
+            result["FScore"] = _compute_f_score(inc, bal, cf) if cf else None
+
+        return {"type": "success", "ticker": symbol, **result}
+
+    except Exception as e:
+        return {"type": "skip", "ticker": symbol, "name": symbol, "reason": f"Exception: {e}"}
+
+# -----------------deprecation pending-------------------
 def fetch_company_with_cache(symbol: str, annual: bool = False, include_goodwill: bool = False,
                              include_intangibles: bool = False, compute_z: bool = False,
                              compute_f: bool = False, api_key: str = None) -> Optional[Dict[str, Any]]:
@@ -718,7 +884,8 @@ def fetch_company_with_cache(symbol: str, annual: bool = False, include_goodwill
 def magic_formula_rank(df: pd.DataFrame) -> pd.DataFrame:
     df = df.dropna(subset=["EY", "ROC"]).copy()
     df["EY_rank"] = df["EY"].rank(ascending=False, method="min")
-    df["ROC_rank"] = df["ROC"].rank(ascending=False, method="min")
+    roc_for_rank = df["ROC"].clip(upper=ROC_RANK_CAP) if ROC_RANK_CAP else df["ROC"]
+    df["ROC_rank"] = roc_for_rank.rank(ascending=False, method="min")
     df["MF_score"] = df["EY_rank"] + df["ROC_rank"]
     return df.sort_values(["MF_score", "EY_rank", "ROC_rank"]) 
 
@@ -775,57 +942,26 @@ def main():
  
     exchanges = [x.strip() for x in args.exchanges.split(',') if x.strip()]
 
-    # Pull symbols per exchange
-    symbols: List[str] = []
-    for ex in exchanges:
-        rows = list_symbols(ex, args.min_mcap, countries)
-        for r in rows:
-            sym = r.get("symbol") or r.get("displaySymbol")
-            if sym:
-                symbols.append(sym)
-        time.sleep(args.sleep)
-
-    # Dedup (filtering already done in list_symbols)
-    symbols = list(dict.fromkeys(symbols))
-
-    use_random = not args.no_random
-    if use_random:
-        print(f"Randomizing {len(symbols)} symbols before sampling...")
-        random.shuffle(symbols)
-
-    if args.limit and len(symbols) > args.limit:
-        symbols = symbols[:args.limit]
-
     # Pull company data
+    symbols = fetch_vault_tickers()
 
     records = []
     skipped = []
-    _set_deepscan_pause(True)
-    try:
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = {executor.submit(fetch_company_with_cache, sym, args.annual, args.include_goodwill,
-                                       args.include_intangibles, args.zscore, args.fscore): sym for sym in symbols}
-            for future in tqdm(as_completed(futures), total=len(futures), desc="Pulling fundamentals"):
-                try:
-                    rec = future.result(timeout=5)
-                    if rec:
-                        if rec.get("type") == "success" and rec.get("marketCap", 0) >= args.min_mcap:
-                            records.append(rec)
-                        elif rec.get("type") == "skip":
-                            skipped.append({
-                                "ticker": rec.get("ticker"),
-                                "name": rec.get("name", ""),
-                                "reason": rec.get("reason", "Unknown")
-                            })
-                except TimeoutError:
-                    print(f"[main] {futures[future]}: timeout (worker exceeded 5s)", flush=True)
-                except Exception as e:
-                    print(f"[main] {futures[future]}: {type(e).__name__}: {e}", flush=True)
-    finally:
-        _set_deepscan_pause(False)
+    for sym in tqdm(symbols, desc="Pulling fundamentals"):
+        rec = fetch_company(sym, args.include_goodwill, args.include_intangibles,
+                            args.zscore, args.fscore)
+        if rec:
+            if rec.get("type") == "success" and rec.get("marketCap", 0) >= args.min_mcap:
+                records.append(rec)
+            elif rec.get("type") == "skip":
+                skipped.append({
+                    "ticker": rec.get("ticker"),
+                    "name": rec.get("name", ""),
+                    "reason": rec.get("reason", "Unknown")
+                })
 
     if not records:
-        print("No qualifying records. Try increasing --limit or lowering --min-mcap.")
+        print("No qualifying records. Is the vault populated? Try lowering --min-mcap.")
         return
 
     df = pd.DataFrame(records)

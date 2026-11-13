@@ -57,7 +57,7 @@ def run_deep_scan():
     all_tickers = []
     for ex in exchanges:
         try:
-            rows = list_symbols(ex, min_mcap=0, countries=["US"])
+            rows = list_symbols(ex, min_mcap=0, countries=None)
             all_tickers.extend(r["symbol"] for r in rows if r.get("symbol"))
         except Exception as e:
             print(f"Error fetching symbols from {ex}: {e}")

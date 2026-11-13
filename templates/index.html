@@ -52,22 +52,6 @@
         <input type="text" id="min-mcap" class="input" value="50,000,000">
       </section>
 
-      <!-- Scan limit -->
-      <section class="sidebar-section">
-        <div class="section-label">Scan Limit</div>
-        <div class="scan-mode">
-          <label><input type="radio" name="scan-mode" value="slider" checked> Slider</label>
-          <label><input type="radio" name="scan-mode" value="manual"> Manual</label>
-        </div>
-        <div id="limit-slider-wrap">
-          <input type="range" id="limit-slider" min="10" max="4000" value="4000" class="slider">
-          <div class="slider-val"><span id="limit-display">4000</span> stocks</div>
-        </div>
-        <div id="limit-manual-wrap" class="hidden">
-          <input type="number" id="limit-manual" class="input" value="400" min="10" max="10000" step="50">
-        </div>
-      </section>
-
       <!-- Top N -->
       <section class="sidebar-section">
         <label class="field-label" for="top-n">Top N Results to Display</label>
@@ -313,20 +297,6 @@ document.getElementById("min-mcap").addEventListener("input", function() {
     }
 });
 
-document.getElementById("limit-slider").addEventListener("input", function() {
-  document.getElementById("limit-display").textContent = this.value;
-});
-
-document.querySelectorAll("input[name='scan-mode']").forEach(r => {
-  r.addEventListener("change", function() {
-    document.getElementById("limit-slider-wrap").classList.toggle("hidden", this.value !== "slider");
-    document.getElementById("limit-manual-wrap").classList.toggle("hidden", this.value !== "manual");
-  });
-});
-const initialMode = document.querySelector("input[name='scan-mode']:checked").value;
-document.getElementById("limit-slider-wrap").classList.toggle("hidden", initialMode !== "slider");
-document.getElementById("limit-manual-wrap").classList.toggle("hidden", initialMode !== "manual");
-
 // ── Advanced drawer (mobile) ───────────────────────────────────────────────
 const advancedToggle = document.getElementById("advanced-toggle");
 if (advancedToggle) {
@@ -341,19 +311,14 @@ if (advancedToggle) {
 
 // ── Collect params ─────────────────────────────────────────────────────────
 function collectParams() {
-  const scanMode = document.querySelector("input[name='scan-mode']:checked").value;
-  const limit = scanMode === "slider"
-    ? parseInt(document.getElementById("limit-slider").value)
-    : parseInt(document.getElementById("limit-manual").value);
-
+  
   return {
     api_key: document.getElementById("api_key") ? document.getElementById("api_key").value : "",
    exchanges: Array.from(document.querySelectorAll(".exchange-cb:checked"))
     .map(cb => cb.value)
     .join(","),
       min_mcap: parseFloat(document.getElementById("min-mcap").value.replace(/,/g, "")) || 50000000,
-      limit,
-      top_n: parseInt(document.getElementById("top-n").value),
+      top_n: parseInt(document.getElementById("top-n").value),      
       use_annual: document.getElementById("use-annual").checked,
       include_goodwill: document.getElementById("include-goodwill").checked,
       include_intangibles: document.getElementById("include-intangibles").checked,
@@ -683,7 +648,7 @@ function renderTable(data) {
                 <span style="font-size:14px;font-weight:700;color:var(--text);">${profile.companyName || ticker}</span>
                 <span class="tk-ticker-badge">${ticker}</span>
                 <span class="tk-exchange-badge">${profile.exchangeShortName || ""}</span>
-                <button class="financials-btn" data-ticker="${ticker}" ">Financials ↗</button>
+                <button class="financials-btn" data-ticker="${ticker}">Financials ↗</button>
               </div>
                 <div class="tk-meta-row">
                   <span>${profile.sector || "—"}</span>
@@ -883,7 +848,7 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
           <div class="tk-description" id="${descId}">${desc}</div>
         </div>
         <div class="tk-rank-block">
-          <div class="tk-rank-label">MF Rank <span class="infotip" title="Ranked against the entire market universe (~3,700 stocks)">ⓘ</span></div>
+          <div class="tk-rank-label">MF Rank <span class="infotip" title="Ranked against the entire market universe">ⓘ</span></div>
           <div class="tk-rank-value">${mf.rank || "none"}</div>
           <div class="tk-rank-sub">${mf.total ? "of " + mf.total.toLocaleString() : (mf.rank ? "" : "not in DB")}</div>
         </div>
@@ -935,8 +900,8 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
             <tr><td class="tk-td-label">Total Debt</td><td class="tk-td-val">${tkFmt(bal?.totalDebt, "large")}</td></tr>
             <tr><td class="tk-td-label">FCF / Share</td><td class="tk-td-val">${tkFmt(keyMetrics.freeCashFlowPerShareTTM, "price")}</td></tr>
             <tr><td class="tk-td-label">Dividend Yield</td><td class="tk-td-val">${tkFmt(ratios.dividendYieldTTM, "pct")}</td></tr>
-            <tr><td class="tk-td-label">F-Score <span class="infotip" title="A measure of momentum. Higher is better. Below 3 suggests deteriorating fundamentals.">ⓘ</span></td><td class="tk-td-val ${fColorClass}">${d.f_score != null ? d.f_score + " / 9" : "n/a"}</td></tr>
-            <tr><td class="tk-td-label">Z-Score <span class="infotip" title="Risk of bankrupcy. Above 2.99: safe. 1.81–2.99: grey zone. Below 1.81: distressed.">ⓘ</span></td><td class="tk-td-val ${zColorClass}">${zVal != null ? zVal : "n/a"}</td></tr>
+            <tr><td class="tk-td-label">F-Score <span class="infotip" title="A measure of financial strength. Higher is better. Below 3 suggests deteriorating fundamentals.">ⓘ</span></td><td class="tk-td-val ${fColorClass}">${d.f_score != null ? d.f_score + " / 9" : "n/a"}</td></tr>
+            <tr><td class="tk-td-label">Z-Score <span class="infotip" title="Risk of bankruptcy. Above 2.99: safe. 1.81–2.99: grey zone. Below 1.81: distressed.">ⓘ</span></td><td class="tk-td-val ${zColorClass}">${zVal != null ? zVal : "n/a"}</td></tr>
           </table>
         </div>
 
