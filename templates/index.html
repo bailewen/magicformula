@@ -75,44 +75,6 @@
         <label class="toggle-row"><input type="checkbox" class="exchange-cb" value="NYSE" checked> NYSE</label>
         <label class="toggle-row"><input type="checkbox" class="exchange-cb" value="AMEX" checked> AMEX</label>
       </section>
-              <!-- Markets -->
-      <section class="sidebar-section">
-        <div class="section-label">Markets</div>
-        <label class="toggle-row">
-          <input type="checkbox" id="include-intl">
-          <span>Include international stocks</span>
-        </label>
-
-        <div id="country-panel" class="country-panel hidden">
-          <label class="toggle-row tier1-toggle">
-            <input type="checkbox" id="all-t1">
-            <span>Select all Tier 1</span>
-          </label>
-          <div class="country-grid">
-            <div>
-              <div class="tier-label">Tier 1</div>
-              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="US" checked> USA</label>
-              <label class="toggle-row"><input type="checkbox" class="country-cb t1" data-code="SG"> SGP</label>
-              <label class="toggle-row"><input type="checkbox" class="country-cb t1" data-code="GB"> GBR</label>
-              <label class="toggle-row"><input type="checkbox" class="country-cb t1" data-code="CA"> CAN</label>
-            </div>
-            <div>
-              <div class="tier-label">Tier 2</div>
-              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="AU"> AUS</label>
-              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="DE"> DEU</label>
-              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="FR"> FRA</label>
-              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="JP"> JPN</label>
-            </div>
-            <div>
-              <div class="tier-label">Tier 3</div>
-              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="HK"> HKG</label>
-              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="KR"> KOR</label>
-              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="IN"> IND</label>
-              <label class="toggle-row"><input type="checkbox" class="country-cb" data-code="CN"> CHN</label>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <div class="divider"></div>
 
@@ -336,14 +298,6 @@ document.getElementById("min-mcap").addEventListener("input", function() {
     }
 });
 
-document.getElementById("include-intl").addEventListener("change", function() {
-  document.getElementById("country-panel").classList.toggle("hidden", !this.checked);
-});
-
-document.getElementById("all-t1").addEventListener("change", function() {
-  document.querySelectorAll(".country-cb.t1").forEach(cb => cb.checked = this.checked);
-});
-
 // ── Advanced drawer (mobile) ───────────────────────────────────────────────
 const advancedToggle = document.getElementById("advanced-toggle");
 if (advancedToggle) {
@@ -358,13 +312,7 @@ if (advancedToggle) {
 
 // ── Collect params ─────────────────────────────────────────────────────────
 function collectParams() {
-  const includeIntl = document.getElementById("include-intl").checked;
-  let countries = ["US"];
-  if (includeIntl) {
-    countries = Array.from(document.querySelectorAll(".country-cb:checked"))
-      .map(cb => cb.dataset.code);
-  }
-
+  
   return {
     api_key: document.getElementById("api_key") ? document.getElementById("api_key").value : "",
    exchanges: Array.from(document.querySelectorAll(".exchange-cb:checked"))
@@ -379,8 +327,7 @@ function collectParams() {
       check_debt_revenue: document.getElementById("check-debt-revenue").checked,
       check_cashflow: document.getElementById("check-cashflow").checked,
       compute_z: document.getElementById("compute-z").checked,
-      compute_f: document.getElementById("compute-f").checked,
-      selected_countries: countries,
+      compute_f: document.getElementById("compute-f").checked,      
   };
 }
 
@@ -703,7 +650,7 @@ function renderTable(data) {
                 <span style="font-size:14px;font-weight:700;color:var(--text);">${profile.companyName || ticker}</span>
                 <span class="tk-ticker-badge">${ticker}</span>
                 <span class="tk-exchange-badge">${profile.exchangeShortName || ""}</span>
-                <button class="financials-btn" data-ticker="${ticker}" ">Financials ↗</button>
+                <button class="financials-btn" data-ticker="${ticker}">Financials ↗</button>
               </div>
                 <div class="tk-meta-row">
                   <span>${profile.sector || "—"}</span>
@@ -903,7 +850,7 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
           <div class="tk-description" id="${descId}">${desc}</div>
         </div>
         <div class="tk-rank-block">
-          <div class="tk-rank-label">MF Rank <span class="infotip" title="Ranked against the entire market universe (~3,700 stocks)">ⓘ</span></div>
+          <div class="tk-rank-label">MF Rank <span class="infotip" title="Ranked against the entire market universe">ⓘ</span></div>
           <div class="tk-rank-value">${mf.rank || "none"}</div>
           <div class="tk-rank-sub">${mf.total ? "of " + mf.total.toLocaleString() : (mf.rank ? "" : "not in DB")}</div>
         </div>
@@ -955,8 +902,8 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
             <tr><td class="tk-td-label">Total Debt</td><td class="tk-td-val">${tkFmt(bal?.totalDebt, "large")}</td></tr>
             <tr><td class="tk-td-label">FCF / Share</td><td class="tk-td-val">${tkFmt(keyMetrics.freeCashFlowPerShareTTM, "price")}</td></tr>
             <tr><td class="tk-td-label">Dividend Yield</td><td class="tk-td-val">${tkFmt(ratios.dividendYieldTTM, "pct")}</td></tr>
-            <tr><td class="tk-td-label">F-Score <span class="infotip" title="A measure of momentum. Higher is better. Below 3 suggests deteriorating fundamentals.">ⓘ</span></td><td class="tk-td-val ${fColorClass}">${d.f_score != null ? d.f_score + " / 9" : "n/a"}</td></tr>
-            <tr><td class="tk-td-label">Z-Score <span class="infotip" title="Risk of bankrupcy. Above 2.99: safe. 1.81–2.99: grey zone. Below 1.81: distressed.">ⓘ</span></td><td class="tk-td-val ${zColorClass}">${zVal != null ? zVal : "n/a"}</td></tr>
+            <tr><td class="tk-td-label">F-Score <span class="infotip" title="A measure of financial strength. Higher is better. Below 3 suggests deteriorating fundamentals.">ⓘ</span></td><td class="tk-td-val ${fColorClass}">${d.f_score != null ? d.f_score + " / 9" : "n/a"}</td></tr>
+            <tr><td class="tk-td-label">Z-Score <span class="infotip" title="Risk of bankruptcy. Above 2.99: safe. 1.81–2.99: grey zone. Below 1.81: distressed.">ⓘ</span></td><td class="tk-td-val ${zColorClass}">${zVal != null ? zVal : "n/a"}</td></tr>
           </table>
         </div>
 
