@@ -40,7 +40,7 @@ Caveats:
 - FMP field names can differ by company and period. If a required field is
   missing, the ticker is skipped and the reason is listed in the skipped CSV.
 
-Run:
+For a CLI run:
   python magicformula.py --top 30 --limit 0      # full universe
   python magicformula.py --top 30 --limit 400    # quick test run
  
