@@ -667,7 +667,7 @@ def fetch_vault_tickers():
 
     return [row[0] for row in rows]
 
-def fetch_company(symbol, include_goodwill=False, include_intangibles=False,
+def fetch_company(symbol, include_goodwill=False, include_intangibles=False, include_cash=False, include_short_debt=False
                   compute_z=False, compute_f=False):
 
     try:
