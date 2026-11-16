@@ -418,9 +418,11 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool,
         return {"reason": f"Missing fields: {', '.join(missing)}"}
 
     ev = mcap + debt - cash
-    # nwc = (tca - cash) - (tcl - short_debt)
-    nwc = (tca - tcl)                          
+    assets = tca if include_cash else (tca - cash)                   # CA, with or without cash
+    liabilities = tcl if include_short_debt else (tcl - short_debt)  # CL, with or without short-term debt
+    nwc = assets - liabilities                      
     nwc = max(nwc, 0)
+    
     goodwill = _latest(bal, "goodwill") or 0
     intangibles = _latest(bal, "intangibleAssets") or 0
                              
@@ -544,7 +546,11 @@ def _compute_f_score(inc: list, bal: list, cf: list) -> Optional[int]:
         return None    
 
 #---------------------compute from vault----------------
-def compute_mf_from_vault(symbol: str, vault: dict, annual: bool = True) -> Optional[Dict[str, Any]]:
+def compute_mf_from_vault(symbol: str, vault: dict, annual: bool = True) -> 
+                          include_goodwill: bool = False,
+                          include_intangibles: bool = False,
+                          include_cash: bool = False,
+                          include_short_debt: bool = False) -> Optional[Dict[str, Any]]:
     """
     Compute MF metrics from pre-fetched vault blobs.
     vault = {"profile": [...], "income-statement": [...], "balance-sheet-statement": [...], ...}
@@ -556,12 +562,13 @@ def compute_mf_from_vault(symbol: str, vault: dict, annual: bool = True) -> Opti
         if not prof:
             return None
 
-
         inc = vault.get("income-statement", [])
         bal_raw = vault.get("balance-sheet-statement", [])
         bal = bal_raw if isinstance(bal_raw, list) else [bal_raw]
 
         result = _compute_mf_metrics(prof, inc, bal, annual)
+                                     include_goodwill, include_intangibles,
+                                     include_cash, include_short_debt)
 
         if result is None or "reason" in result:
             return None
