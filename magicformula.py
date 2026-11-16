@@ -272,6 +272,22 @@ def _latest(items: List[Dict[str, Any]], field: str):
     v = items[0].get(field)
     return None if v in (None, "") else float(v)
 
+# -------------------- Reporting-currency check --------------------
+# Market cap comes from the profile (USD for US-listed ADRs), but the
+# statements are in the company's reporting currency. If that isn't USD,
+# EV = mcap + debt - cash mixes currencies and EY/ROC come out as garbage
+# (e.g. ASX reports in TWD: EV ~ $2.9T, ROC ~ 900,000%). Skip those.
+def _check_reporting_currency(inc: list, bal: list) -> Optional[str]:
+    seen = set()
+    for row in list(inc[:4]) + list(bal[:1]):
+        cur = (row.get("reportedCurrency") or "").strip().upper()
+        if cur:
+            seen.add(cur)
+    non_usd = seen - {"USD"}
+    if non_usd:
+        return f"Financials reported in {', '.join(sorted(non_usd))}, not USD"
+    return None
+
 # -------------------- Income-statement sanity checks --------------------
 def _check_income_quality(periods: list, require_quarters: bool,
                           skip_idx: Optional[int] = None) -> Optional[str]:
@@ -358,6 +374,10 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_
     name = prof.get("companyName", "").lower()
     if any(x in name for x in ["preferred", "perpetual", "series a", "series b"]):
         return None
+
+    bad = _check_reporting_currency(inc, bal)
+    if bad:
+        return {"reason": bad}
 
     if annual:
         bad = _check_income_quality(inc[:1], require_quarters=False)
