@@ -262,6 +262,7 @@
 let currentScanId = null;
 let currentResults = null;
 let eventSource = null;
+let lastScanParams = null;
 
 
 // ── UI helpers ─────────────────────────────────────────────────────────────
@@ -336,7 +337,23 @@ function collectParams() {
       compute_f: document.getElementById("compute-f").checked,      
   };
 }
+	
+function optionQuery(src) {
+  const o = src || {
+    include_goodwill:    document.getElementById("include-goodwill").checked,
+    include_intangibles: document.getElementById("include-intangibles").checked,
+    include_cash:        document.getElementById("include-cash").checked,
+    include_short_debt:  document.getElementById("include-short-debt").checked,
+  };
+  return new URLSearchParams({
+    include_goodwill:    !!o.include_goodwill,
+    include_intangibles: !!o.include_intangibles,
+    include_cash:        !!o.include_cash,
+    include_short_debt:  !!o.include_short_debt,
+  }).toString();
+}
 
+	
 // ── Run scan ───────────────────────────────────────────────────────────────
 document.getElementById("run-btn").addEventListener("click", async () => {
 
@@ -364,6 +381,7 @@ document.getElementById("run-btn").addEventListener("click", async () => {
   currentScanId = null;
 
   const params = collectParams();
+  lastScanParams = params;
   document.getElementById("run-btn").disabled = true;
   document.getElementById("run-btn").textContent = "⏳ Running…";
   switchTab("screener");
@@ -750,7 +768,7 @@ async function openTickerModal(ticker) {
   modal.classList.remove("hidden");
   content.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">⏳ Loading ${ticker}…</div>`;
 
-  const res = await fetch(`/ticker/${ticker}`);
+  const res = await fetch(`/ticker/${ticker}?${optionQuery(lastScanParams)}`);
   const d = await res.json();
   if (!res.ok) {
     content.innerHTML = `<div class="error-box"><div class="error-icon">❌</div><div>${d.error || "Failed to load"}</div></div>`;
@@ -1102,8 +1120,8 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
     tkShow("ticker-loading");
 
     let data;
-    try {
-      const res = await fetch(`/ticker/${raw}`);
+    try {      
+	  const res = await fetch(`/ticker/${raw}?${optionQuery()}`);
       data = await res.json();
       if (!res.ok) throw new Error(data.error || "Not found");
     } catch (e) {
