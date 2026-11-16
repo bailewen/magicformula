@@ -550,8 +550,9 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
         ]
         display_cols = [c for c in display_cols if c in ranked.columns]
         final_df = ranked[display_cols].head(top_n)
-
-        results = final_df.to_dict(orient="records")
+        
+        final_df = final_df.replace([float("inf"), float("-inf")], float("nan"))
+        results = final_df.astype(object).where(final_df.notna(), None).to_dict(orient="records")
 
         elapsed = time.time() - scan_start
         summary = _compute_summary(results, elapsed)
