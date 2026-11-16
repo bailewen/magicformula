@@ -326,6 +326,27 @@ def ticker_lookup(symbol):
     except Exception as e:
         print(f"[ticker_lookup] MF rank error: {e}")
 
+    except Exception as e:
+        print(f"[ticker_lookup] MF rank error: {e}")
+
+    if options_applied:
+        mf_data = {}
+        try:
+            inc_l = vault.get("income-statement", ([], None))[0]
+            bal_l = vault.get("balance-sheet-statement", ([], None))[0]
+            if not isinstance(inc_l, list): inc_l = [inc_l]
+            if not isinstance(bal_l, list): bal_l = [bal_l]
+            live = mf._compute_mf_metrics(
+                profile if isinstance(profile, dict) else {},
+                inc_l, bal_l, False, **opts)
+            if live and "reason" not in live:
+                mf_data = {"ey": live["EY"], "roc": live["ROC"]}
+        except Exception as e:
+            print(f"[ticker_lookup] live MF error: {e}")
+    
+    f_score = None
+    z_score = None
+    
     f_score = None
     z_score = None
     try:
