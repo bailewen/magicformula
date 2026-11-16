@@ -352,8 +352,11 @@ def _ttm_ebit(quarters: list):
 
 
 # -------------------- Field helpers --------------------
-def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_goodwill: bool = False,
-                            include_intangibles: bool = False) -> Optional[Dict[str, Any]]:
+def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool,
+                        include_goodwill: bool = False,
+                        include_intangibles: bool = False,
+                        include_cash: bool = False,
+                        include_short_debt: bool = False) -> Optional[Dict[str, Any]]:
     """
     Core MF computation from pre-parsed data structures.
     Returns a result dict on success, or a dict with 'reason' key on skip, or None.
@@ -774,7 +777,7 @@ def main():
     skipped = []
     for sym in tqdm(symbols, desc="Pulling fundamentals"):
         rec = fetch_company(sym, args.include_goodwill, args.include_intangibles,
-                            args.zscore, args.fscore)
+                    compute_z=args.zscore, compute_f=args.fscore)
         if rec:
             if rec.get("type") == "success" and rec.get("marketCap", 0) >= args.min_mcap:
                 records.append(rec)
