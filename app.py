@@ -433,7 +433,7 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
         exchanges_list = [x.strip() for x in exchanges_raw.split(",") if x.strip()]
         min_mcap = float(params.get("min_mcap", 50_000_000))
         top_n = int(params.get("top_n", 30))        
-        use_annual = params.get("use_annual", False)
+        include_international = params.get("include_international", False)
         check_debt_revenue = params.get("check_debt_revenue", False)
         check_cashflow = params.get("check_cashflow", False)
         debt_revenue_quarters = int(params.get("debt_revenue_quarters", 6))
@@ -442,11 +442,6 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
         include_intangibles = params.get("include_intangibles", False)
         compute_z = params.get("compute_z", False)
         compute_f = params.get("compute_f", False)
-
-        # Country filter
-        selected_countries = params.get("selected_countries", ["US"])
-        if not selected_countries:
-            selected_countries = ["US"]
 
         # ── Step 1: Gather symbols ─────────────────────────────────────────
         _push(q, {"type": "status", "message": "Gathering symbols from vault…", "step": 1})
@@ -486,15 +481,20 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
                 return
 
             rec = mf.fetch_company(sym, include_goodwill, include_intangibles, compute_z, compute_f)
-                    
-            if rec and rec.get("type") == "success" and rec.get("marketCap", 0) >= min_mcap:
+
+            if (rec and rec.get("type") == "success"
+                    and not include_international
+                    and rec.get("country") != "US"):
+                filtered += 1
+                skip_reasons["Non-US (international off)"] += 1
+            elif rec and rec.get("type") == "success" and rec.get("marketCap", 0) >= min_mcap:
                 records.append(rec)
                 qualified += 1
             elif rec and rec.get("type") == "skip":
                 filtered += 1
                 skip_reasons[rec.get("reason", "Unknown")] += 1
             else:
-                skipped += 1  # returned None — missing/incomplete data
+                skipped += 1
                
 
             _push(q, {
