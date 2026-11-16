@@ -546,7 +546,7 @@ def _compute_f_score(inc: list, bal: list, cf: list) -> Optional[int]:
         return None    
 
 #---------------------compute from vault----------------
-def compute_mf_from_vault(symbol: str, vault: dict, annual: bool = True) -> 
+def compute_mf_from_vault(symbol: str, vault: dict, annual: bool = True, 
                           include_goodwill: bool = False,
                           include_intangibles: bool = False,
                           include_cash: bool = False,
@@ -566,7 +566,7 @@ def compute_mf_from_vault(symbol: str, vault: dict, annual: bool = True) ->
         bal_raw = vault.get("balance-sheet-statement", [])
         bal = bal_raw if isinstance(bal_raw, list) else [bal_raw]
 
-        result = _compute_mf_metrics(prof, inc, bal, annual)
+        result = _compute_mf_metrics(prof, inc, bal, annual
                                      include_goodwill, include_intangibles,
                                      include_cash, include_short_debt)
 
