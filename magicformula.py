@@ -117,7 +117,7 @@ ROC_RANK_CAP = 1.0   # 100%; None to rank on raw ROC
 # Treat any ROC above this as suspicious and skip the ticker entirely
 # (previously a hard-coded 10.0 = 1000% "data error" check).
 # Set to None to disable; 10.0 restores the old behavior.
-ROC_EXCLUDE_ABOVE = None   # e.g. 10.0 = 1000%, the original data-error check
+ROC_EXCLUDE_ABOVE = 5.0   # e.g. 10.0 = 1000%, the original data-error check
 
 # Capital (the ROC denominator) is never allowed below this: a company with
 # almost no tangible capital is ranked as if it had CAPITAL_FLOOR instead of
