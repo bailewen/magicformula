@@ -64,8 +64,8 @@
 
       <!-- Options -->
       <section class="sidebar-section">
-        <div class="section-label">Options</div>        
-        <label class="toggle-row"><input type="checkbox" id="use-annual"> Use Annual Data (instead of TTM)</label>
+        <div class="section-label">Options</div>
+		<label class="toggle-row"><input type="checkbox" id="include-international"> Include non-US</label>
         <label class="toggle-row"><input type="checkbox" id="include-goodwill"> Include goodwill in (ROC)</label>
         <label class="toggle-row"><input type="checkbox" id="include-intangibles"> Include intangibles in (ROC)</label>
         <div class="divider"></div>
@@ -318,8 +318,8 @@ function collectParams() {
     .map(cb => cb.value)
     .join(","),
       min_mcap: parseFloat(document.getElementById("min-mcap").value.replace(/,/g, "")) || 50000000,
-      top_n: parseInt(document.getElementById("top-n").value),      
-      use_annual: document.getElementById("use-annual").checked,
+      top_n: parseInt(document.getElementById("top-n").value),   
+      include_international: document.getElementById("include-international").checked,
       include_goodwill: document.getElementById("include-goodwill").checked,
       include_intangibles: document.getElementById("include-intangibles").checked,
       check_debt_revenue: document.getElementById("check-debt-revenue").checked,
