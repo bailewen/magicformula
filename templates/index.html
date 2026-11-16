@@ -86,8 +86,8 @@
       <section class="sidebar-section">
         <div class="section-label"> Misc Checks (Optional)</div>
 		<label class="toggle-row"><input type="checkbox" id="include-international"> Include non-US</label>
-        <label class="toggle-row"><input type="checkbox" id="compute-z" checked> Show Altman Z Score</label>
-        <label class="toggle-row"><input type="checkbox" id="compute-f" checked> Show Piotroski F Score</label>
+        <label class="toggle-row"><input type="checkbox" id="compute-z"> Show Altman Z Score</label>
+        <label class="toggle-row"><input type="checkbox" id="compute-f"> Show Piotroski F Score</label>
         <label class="toggle-row"><input type="checkbox" id="check-debt-revenue"> D/E decreasing + Revenue increasing</label>
         <label class="toggle-row"><input type="checkbox" id="check-cashflow"> Cash flow exceeds net income</label>
 	</section>
@@ -332,8 +332,8 @@ function collectParams() {
 	  include_short_debt: document.getElementById("include-short-debt").checked,
       check_debt_revenue: document.getElementById("check-debt-revenue").checked,
       check_cashflow: document.getElementById("check-cashflow").checked,
-      compute_z: document.getElementById("compute-z"),
-      compute_f: document.getElementById("compute-f"),      
+      compute_z: document.getElementById("compute-z").checked,
+      compute_f: document.getElementById("compute-f").checked,      
   };
 }
 
