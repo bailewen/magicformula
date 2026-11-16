@@ -246,6 +246,17 @@ def description(ticker):
 @app.route("/ticker/<symbol>")
 def ticker_lookup(symbol):
     symbol = symbol.upper().strip()
+    def _flag(name):
+        return request.args.get(name, "false").lower() == "true"
+
+    opts = dict(
+        include_goodwill=_flag("include_goodwill"),
+        include_intangibles=_flag("include_intangibles"),
+        include_cash=_flag("include_cash"),
+        include_short_debt=_flag("include_short_debt"),
+    )  
+    options_applied = any(opts.values())
+    
     conn = mf.get_conn()
     ENDPOINTS = ["profile", "quote", "income-statement", "balance-sheet-statement",
                  "ratios-ttm", "key-metrics-ttm", "cash-flow-statement"]
