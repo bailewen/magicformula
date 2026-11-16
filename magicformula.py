@@ -415,7 +415,8 @@ def _compute_mf_metrics(prof: dict, inc: list, bal: list, annual: bool, include_
         return {"reason": f"Missing fields: {', '.join(missing)}"}
 
     ev = mcap + debt - cash
-    nwc = (tca - cash) - (tcl - short_debt)
+    # nwc = (tca - cash) - (tcl - short_debt)
+    nwc = (tca - tcl)                          
     nwc = max(nwc, 0)
     goodwill = _latest(bal, "goodwill") or 0
     intangibles = _latest(bal, "intangibleAssets") or 0
