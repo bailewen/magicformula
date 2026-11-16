@@ -320,10 +320,7 @@ def ticker_lookup(symbol):
     try:
         bal_list = vault.get("balance-sheet-statement", ({}, None))[0]
         inc_list = vault.get("income-statement", ({}, None))[0]
-        cf_list = vault.get("cash-flow-statement", ({}, None))[0]
-        print(f"DEBUG SBC bal_list type={type(bal_list)} len={len(bal_list) if isinstance(bal_list, list) else 'not list'}")
-        print(f"DEBUG SBC inc_list type={type(inc_list)} len={len(inc_list) if isinstance(inc_list, list) else 'not list'}")
-        print(f"DEBUG SBC cf_list type={type(cf_list)} len={len(cf_list) if isinstance(cf_list, list) else 'not list'}")
+        cf_list = vault.get("cash-flow-statement", ({}, None))[0]        
         if not isinstance(bal_list, list): bal_list = [bal_list]
         if not isinstance(inc_list, list): inc_list = [inc_list]
         if not isinstance(cf_list, list): cf_list = [cf_list]
@@ -440,6 +437,8 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
         cashflow_quarters = int(params.get("cashflow_quarters", 8))
         include_goodwill = params.get("include_goodwill", False)
         include_intangibles = params.get("include_intangibles", False)
+        include_cash = params.get("include_cash", False)
+        include_short_debt = params.get("include_short_debt", False)
         compute_z = params.get("compute_z", False)
         compute_f = params.get("compute_f", False)
 
@@ -480,7 +479,15 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
                 _finalize(scan_id, error="Cancelled")                    
                 return
 
-            rec = mf.fetch_company(sym, include_goodwill, include_intangibles, compute_z, compute_f)
+            rec = mf.fetch_company(
+                sym,
+                include_goodwill=include_goodwill,
+                include_intangibles=include_intangibles,
+                include_cash=include_cash,
+                include_short_debt=include_short_debt,
+                compute_z=compute_z,
+                compute_f=compute_f,
+            )
 
             if (rec and rec.get("type") == "success"
                     and not include_international
