@@ -64,11 +64,16 @@
 
       <!-- Options -->
       <section class="sidebar-section">
-        <div class="section-label">Options</div>
-		<label class="toggle-row"><input type="checkbox" id="include-international"> Include non-US</label>
-        <label class="toggle-row"><input type="checkbox" id="include-goodwill"> Include goodwill in (ROC)</label>
-        <label class="toggle-row"><input type="checkbox" id="include-intangibles"> Include intangibles in (ROC)</label>
-        <div class="divider"></div>
+        <div class="section-label">ROC Options</div>  
+		<label class="toggle-row"><input type="checkbox" id="include-goodwill"> Include goodwill</label>
+        <label class="toggle-row"><input type="checkbox" id="include-intangibles"> Include intangibles</label>
+		  
+		<div class="divider"></div>
+        <div class="section-label">NWC Options</div>  
+		<label class="toggle-row"><input type="checkbox" id="include-cash"> Include cash</label>
+		<label class="toggle-row"><input type="checkbox" id="include-short-debt"> Include short-term debt</label>
+        
+		<div class="divider"></div>
         <div class="section-label">Exchanges</div>
         <label class="toggle-row"><input type="checkbox" class="exchange-cb" value="NASDAQ" checked> NASDAQ</label>
         <label class="toggle-row"><input type="checkbox" class="exchange-cb" value="NYSE" checked> NYSE</label>
@@ -77,9 +82,10 @@
 
       <div class="divider"></div>
 
-      <!-- Health checks -->
+      <!-- Miscelaneous checks -->
       <section class="sidebar-section">
-        <div class="section-label">🩺 Health Checks (Optional)</div>
+        <div class="section-label"> Misc Checks (Optional)</div>
+		<label class="toggle-row"><input type="checkbox" id="include-international"> Include non-US</label>
         <label class="toggle-row"><input type="checkbox" id="compute-z" checked> Show Altman Z Score</label>
         <label class="toggle-row"><input type="checkbox" id="compute-f" checked> Show Piotroski F Score</label>
         <label class="toggle-row"><input type="checkbox" id="check-debt-revenue"> D/E decreasing + Revenue increasing</label>
@@ -322,10 +328,12 @@ function collectParams() {
       include_international: document.getElementById("include-international").checked,
       include_goodwill: document.getElementById("include-goodwill").checked,
       include_intangibles: document.getElementById("include-intangibles").checked,
+	  include_cash: document.getElementById("include-cash").checked,
+	  include_short_debt: document.getElementById("include-short-debt").checked,
       check_debt_revenue: document.getElementById("check-debt-revenue").checked,
       check_cashflow: document.getElementById("check-cashflow").checked,
-      compute_z: document.getElementById("compute-z").checked,
-      compute_f: document.getElementById("compute-f").checked,      
+      compute_z: document.getElementById("compute-z"),
+      compute_f: document.getElementById("compute-f"),      
   };
 }
 
