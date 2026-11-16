@@ -566,7 +566,7 @@ def compute_mf_from_vault(symbol: str, vault: dict, annual: bool = True,
         bal_raw = vault.get("balance-sheet-statement", [])
         bal = bal_raw if isinstance(bal_raw, list) else [bal_raw]
 
-        result = _compute_mf_metrics(prof, inc, bal, annual
+        result = _compute_mf_metrics(prof, inc, bal, annual,
                                      include_goodwill, include_intangibles,
                                      include_cash, include_short_debt)
 
@@ -696,7 +696,7 @@ def fetch_company(
             return {"type": "skip", "ticker": symbol, "name": symbol, "reason": "Not in vault"}
 
         prof = prof[0]
-        result = _compute_mf_metrics(prof, inc, bal, False, include_goodwill, include_intangibles)
+        result = _compute_mf_metrics(prof, inc, bal, False, include_goodwill, include_intangibles, include_cash, include_short_debt)
 
         if result is None:
             return None
