@@ -481,10 +481,10 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
 
             rec = mf.fetch_company(
                 sym,
-                include_goodwill=include_goodwill,
-                include_intangibles=include_intangibles,
-                include_cash=include_cash,
-                include_short_debt=include_short_debt,
+                include_goodwill,
+                include_intangibles,
+                include_cash,
+                include_short_debt,
                 compute_z=compute_z,
                 compute_f=compute_f,
             )
