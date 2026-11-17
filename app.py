@@ -522,10 +522,15 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
             )
 
             if (rec and rec.get("type") == "success"
+                    and rec.get("exchange") not in exchanges_list):
+                filtered += 1
+                skip_reasons["Non-US (international off)"] += 1
+            elif (rec and rec.get("type") == "success"
                     and not include_international
                     and rec.get("country") != "US"):
                 filtered += 1
                 skip_reasons["Non-US (international off)"] += 1
+                        
             elif rec and rec.get("type") == "success" and rec.get("marketCap", 0) >= min_mcap:
                 records.append(rec)
                 qualified += 1
