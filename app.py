@@ -170,30 +170,26 @@ def company_search(query):
 
     conn = mf.get_conn()
 
-    local = conn.execute(
+        local = conn.execute(
         """SELECT ticker, name FROM (
-               SELECT ticker, MAX(name) as name
-               FROM company_cache
-               WHERE name LIKE ? OR ticker LIKE ?
-               GROUP BY ticker
+               SELECT ticker,
+                      COALESCE(json_extract(json_blob, '$[0].companyName'),
+                               json_extract(json_blob, '$.companyName')) AS name
+               FROM raw_json_vault
+               WHERE endpoint = 'profile'
            )
+           WHERE name LIKE ? OR ticker LIKE ?
            ORDER BY
              CASE
-               WHEN ticker = ?            THEN 0  -- exact ticker match
-               WHEN ticker LIKE ?         THEN 1  -- ticker starts with query
-               WHEN name LIKE ?           THEN 2  -- name starts with query
-               WHEN name LIKE ?           THEN 3  -- query is a whole word in name
-               ELSE 4                              -- substring match (ticker or name)
+               WHEN ticker = ?            THEN 0
+               WHEN ticker LIKE ?         THEN 1
+               WHEN name LIKE ?           THEN 2
+               WHEN name LIKE ?           THEN 3
+               ELSE 4
              END,
              name
            LIMIT 10""",
-        (
-            f"%{query}%", f"%{query}%",  # WHERE: broaden ticker to substring too
-            query,  # tier 0: exact ticker
-            f"{query}%",  # tier 1: ticker prefix
-            f"{query}%",  # tier 2: name prefix
-            f"% {query}%",  # tier 3: whole-word in name (crude)
-        )
+        (f"%{query}%", f"%{query}%", query, f"{query}%", f"{query}%", f"% {query}%")
     ).fetchall()
 
     conn.close()
