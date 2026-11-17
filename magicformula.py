@@ -738,15 +738,11 @@ def main():
     ap.add_argument("--min-mcap", type=float, default=50e6, help="Minimum market cap USD")
     ap.add_argument("--limit", type=int, default=400, help="Max symbols to process (free‑tier friendly); web UI defaults to 4000 to cover the full NASDAQ+NYSE+AMEX universe")
     ap.add_argument("--sleep", type=float, default=0.2, help="Delay between API calls to respect rate limits")
-    ap.add_argument("--top", type=int, default=30, help="How many top results to export")
-    ap.add_argument("--no-random", action="store_true", default=False, help="Disable symbol shuffling (default: shuffle, matching web UI)")
+    ap.add_argument("--top", type=int, default=30, help="How many top results to export")    
     ap.add_argument("--countries", type=str, default=None,
                 help="Comma-separated country codes (e.g., US,CA,GB). Default: US")
     ap.add_argument("--tier1", action="store_true",
-                help="Use Tier 1 markets: US, SG, GB, CA")
-    ap.add_argument("--out", type=str, default=default_name, help="Output CSV path")
-    ap.add_argument("--annual", action="store_true",
-                help="Use annual data instead of TTM quarterly")
+                help="Use Tier 1 markets: US, SG, GB, CA")       
     ap.add_argument("--check-debt-revenue", action="store_true",
                     help="Health check: require D/E trending down and revenue trending up")
     ap.add_argument("--check-cashflow", action="store_true",
@@ -766,15 +762,6 @@ def main():
 
     args = ap.parse_args()
 
- # Parse countries
-    if args.tier1:
-        countries = ["US", "SG", "GB", "CA"]
-    elif args.countries:
-        countries = [c.strip() for c in args.countries.split(',')]
-    else:
-        countries = ["US"]  # matches web UI default; use --countries or --tier1 to override
-
- 
     exchanges = [x.strip() for x in args.exchanges.split(',') if x.strip()]
 
     # Pull company data
