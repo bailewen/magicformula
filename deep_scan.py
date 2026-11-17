@@ -23,15 +23,6 @@ DEEP_SCAN_PARAMS = {
     "balance-sheet-statement": {"period": "quarter", "limit": 2},
     "cash-flow-statement":     {"period": "quarter", "limit": 2},
 }
-
-def _is_paused() -> bool:
-    conn = get_conn()
-    row = conn.execute(
-        "SELECT value FROM scan_control WHERE key='deepscan_paused'"
-    ).fetchone()
-    conn.close()
-    return row and row[0] == '1'
-
 def fetch_and_store(ticker: str, endpoint: str) -> tuple | None:
     while _is_paused():
         time.sleep(5)
