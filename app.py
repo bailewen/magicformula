@@ -170,7 +170,7 @@ def company_search(query):
 
     conn = mf.get_conn()
 
-        local = conn.execute(
+    local = conn.execute(
         """SELECT ticker, name FROM (
                SELECT ticker,
                       COALESCE(json_extract(json_blob, '$[0].companyName'),
