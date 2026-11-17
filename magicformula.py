@@ -594,33 +594,7 @@ def get_conn() -> sqlite3.Connection:
 def _init_db():
     """Initialize the SQLite database with the company cache table."""
     conn = get_conn()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS company_cache (
-            ticker TEXT NOT NULL,
-            period TEXT NOT NULL,
-            name TEXT,
-            exchange TEXT,
-            country TEXT,
-            sector TEXT,
-            industry TEXT,
-            marketCap REAL,
-            EV REAL,
-            EBIT REAL,
-            NWC REAL,
-            PPE_Net REAL,
-            Capital REAL,
-            Cash REAL,
-            TotalDebt REAL,
-            EY REAL,
-            ROC REAL,
-            Goodwill REAL,
-            Intangibles REAL,
-            ZScore REAL,
-            FScore INTEGER,
-            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (ticker, period)
-        )
-    """)
+  
     conn.execute("""
             CREATE TABLE IF NOT EXISTS raw_json_vault (
                 ticker TEXT NOT NULL,
@@ -640,12 +614,7 @@ def _init_db():
         INSERT OR IGNORE INTO scan_control (key, value)
         VALUES ('deepscan_paused', '0')
     """)
-    conn.commit()
-    existing = {row[1] for row in conn.execute("PRAGMA table_info(company_cache)")}
-    for col, typedef in [("ZScore", "REAL"), ("FScore", "INTEGER")]:
-        if col not in existing:
-            conn.execute(f"ALTER TABLE company_cache ADD COLUMN {col} {typedef}")
-    conn.commit()
+    conn.commit()    
     conn.close()
 
 # Initialize database on module load
