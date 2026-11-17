@@ -89,7 +89,6 @@ except Exception:  # pragma: no cover
         return x
 
 FMP_BASE = "https://financialmodelingprep.com/api/v3"
-FMP_KEY  = os.getenv("FMP_API_KEY", "")
 
 # Industries excluded even though FMP files them under a non-financial sector.
 # Health insurers hold large cash/investment portfolios against claims, which
