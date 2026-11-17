@@ -1093,11 +1093,28 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
     tkSearchActiveIndex = -1;
   }
 
+ let tickerLookupId = 0
+ for (const id of [
+  	  "include-cash",
+  	  "include-short-debt",
+  	  "include-goodwill",
+  	  "include-intangibles",
+	]) {
+  	  document.getElementById(id).addEventListener("change", () => {
+        const ticker = document.getElementById("ticker-input").value.trim().toUpperCase();
+
+        if (ticker && ticker === localStorage.getItem("lastTicker")) {
+          lookupTicker();
+        }
+      });
+    }
+	  
   async function lookupTicker() {
     // If the search dropdown is currently showing "no match" for this same
     // text, don't also run a ticker lookup that will just fail and stack a
     // second, redundant error message on top of it. Let the dropdown's
     // message stand alone.
+	  
     const dropdownShowingNoMatch =
       !tkSearchDropdown.classList.contains("hidden") &&
       tkSearchDropdown.querySelector(".ticker-search-noresult");
@@ -1116,26 +1133,29 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
       return;
     }
 
+	  
+    const lookupId = ++tickerLookupId;
     document.getElementById("ticker-btn").disabled = true;
     tkShow("ticker-loading");
 
     let data;
-    try {      
-	  const res = await fetch(`/ticker/${raw}?${optionQuery()}`);
+    try {
+      const res = await fetch(`/ticker/${raw}?${optionQuery()}`);
       data = await res.json();
       if (!res.ok) throw new Error(data.error || "Not found");
     } catch (e) {
+      if (lookupId !== tickerLookupId) return;
       document.getElementById("ticker-error-msg").textContent = e.message;
       tkShow("ticker-error-state");
       document.getElementById("ticker-btn").disabled = false;
       return;
     }
 
+    if (lookupId !== tickerLookupId) return;
     document.getElementById("ticker-btn").disabled = false;
-    localStorage.setItem('lastTicker', raw);
+    localStorage.setItem("lastTicker", raw);
     renderTicker(raw, data);
   }
-
   function renderTicker(ticker, d) {
     const container = document.getElementById("ticker-result-content");
     container.innerHTML = buildTickerHTML(ticker, d);
