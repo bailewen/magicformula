@@ -604,16 +604,7 @@ def _init_db():
                 PRIMARY KEY (ticker, endpoint)
             )
         """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS scan_control (
-            key   TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-        )
-    """)
-    conn.execute("""
-        INSERT OR IGNORE INTO scan_control (key, value)
-        VALUES ('deepscan_paused', '0')
-    """)
+    
     conn.commit()    
     conn.close()
 
