@@ -874,7 +874,7 @@ document.getElementById("ticker-modal").addEventListener("click", (e) => {
           <div class="tk-description" id="${descId}">${desc}</div>
         </div>
         <div class="tk-rank-block">
-          <div class="tk-rank-label">MF Rank <span class="infotip" title="Ranked against the entire market universe">ⓘ</span></div>
+          <div class="tk-rank-label">MF Rank <span class="infotip" title="Ranked against the entire market universe. Assumes default ROC and NWC options">ⓘ</span></div>
           <div class="tk-rank-value">${mf.rank || "none"}</div>
           <div class="tk-rank-sub">${mf.total ? "of " + mf.total.toLocaleString() : (mf.rank ? "" : "not in DB")}</div>
         </div>
