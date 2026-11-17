@@ -24,8 +24,7 @@ DEEP_SCAN_PARAMS = {
     "cash-flow-statement":     {"period": "quarter", "limit": 2},
 }
 def fetch_and_store(ticker: str, endpoint: str) -> tuple | None:
-    while _is_paused():
-        time.sleep(5)
+
     try:
         params = DEEP_SCAN_PARAMS.get(endpoint, {})
         data = fmp_get(f"/{endpoint}/{ticker}", params)
@@ -37,11 +36,6 @@ def fetch_and_store(ticker: str, endpoint: str) -> tuple | None:
         return None
 
 def run_deep_scan():
-    # Clear any stale pause flag from a previous crashed screener run
-    conn = get_conn()
-    conn.execute("UPDATE scan_control SET value='0' WHERE key='deepscan_paused'")
-    conn.commit()
-    conn.close()
 
     exchanges = ["NASDAQ", "NYSE", "AMEX"]
     all_tickers = []
