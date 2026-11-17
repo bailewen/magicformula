@@ -255,8 +255,7 @@ def ticker_lookup(symbol):
         include_cash=_flag("include_cash"),
         include_short_debt=_flag("include_short_debt"),
     )  
-    options_applied = any(opts.values())
-    
+        
     conn = mf.get_conn()
     ENDPOINTS = ["profile", "quote", "income-statement", "balance-sheet-statement",
                  "ratios-ttm", "key-metrics-ttm", "cash-flow-statement"]
@@ -302,62 +301,62 @@ def ticker_lookup(symbol):
     ratios      = get("ratios-ttm")
     key_metrics = get("key-metrics-ttm")
 
+    inc_list = vault.get("income-statement", ([], None))[0]
+    bal_list = vault.get("balance-sheet-statement", ([], None))[0]
+    cf_list = vault.get("cash-flow-statement", ([], None))[0]
+
+    if not isinstance(inc_list, list):
+        inc_list = [inc_list]
+    if not isinstance(bal_list, list):
+        bal_list = [bal_list]
+    if not isinstance(cf_list, list):
+        cf_list = [cf_list]
+
+    profile_dict = profile if isinstance(profile, dict) else {}
+
     mf_data = {}
     try:
-        row = conn.execute(
-            "SELECT EY, ROC, MF_score FROM mf_universe WHERE ticker = ?",
-            (symbol,)
-        ).fetchone()
-        if row:
-            total = conn.execute(
-                "SELECT COUNT(*) FROM mf_universe WHERE MF_score IS NOT NULL"
-            ).fetchone()[0]
-            rank_row = conn.execute(
-                "SELECT COUNT(*) FROM mf_universe WHERE MF_score < ?",
-                (row["MF_score"],)
-            ).fetchone()
-            mf_data = {
-                "ey":       row["EY"],
-                "roc":      row["ROC"],
-                "mf_score": row["MF_score"],
-                "rank":     (rank_row[0] + 1) if rank_row else None,
-                "total":    total,
-            }
+        live = mf._compute_mf_metrics(
+            profile_dict, inc_list, bal_list, annual=False, **opts
+        )
+        if live and "reason" not in live:
+            mf_data = {"ey": live["EY"], "roc": live["ROC"]}
     except Exception as e:
-        print(f"[ticker_lookup] MF rank error: {e}")
+        print(f"[ticker_lookup] live MF error: {e}")
 
-    except Exception as e:
-        print(f"[ticker_lookup] MF rank error: {e}")
+    # These are the settings used to build mf_universe.
+    rank_options = {
+        "include_goodwill": False,
+        "include_intangibles": False,
+        "include_cash": False,
+        "include_short_debt": False,
+    }
 
-    if options_applied:
-        mf_data = {}
+    if mf_data and opts == rank_options:
         try:
-            inc_l = vault.get("income-statement", ([], None))[0]
-            bal_l = vault.get("balance-sheet-statement", ([], None))[0]
-            if not isinstance(inc_l, list): inc_l = [inc_l]
-            if not isinstance(bal_l, list): bal_l = [bal_l]
-            live = mf._compute_mf_metrics(
-                profile if isinstance(profile, dict) else {},
-                inc_l, bal_l, False, **opts)
-            if live and "reason" not in live:
-                mf_data = {"ey": live["EY"], "roc": live["ROC"]}
+            row = conn.execute(
+                "SELECT MF_score FROM mf_universe WHERE ticker = ?",
+                (symbol,),
+            ).fetchone()
+
+            if row is not None and row["MF_score"] is not None:
+                score = row["MF_score"]
+                total = conn.execute(
+                    "SELECT COUNT(*) FROM mf_universe WHERE MF_score IS NOT NULL"
+                ).fetchone()[0]
+                ahead = conn.execute(
+                    "SELECT COUNT(*) FROM mf_universe WHERE MF_score < ?",
+                    (score,),
+                ).fetchone()[0]
+                mf_data.update(mf_score=score, rank=ahead + 1, total=total)
         except Exception as e:
-            print(f"[ticker_lookup] live MF error: {e}")
-    
-    f_score = None
-    z_score = None
-    
+            print(f"[ticker_lookup] MF rank error: {e}")
+
     f_score = None
     z_score = None
     try:
-        bal_list = vault.get("balance-sheet-statement", ({}, None))[0]
-        inc_list = vault.get("income-statement", ({}, None))[0]
-        cf_list = vault.get("cash-flow-statement", ({}, None))[0]        
-        if not isinstance(bal_list, list): bal_list = [bal_list]
-        if not isinstance(inc_list, list): inc_list = [inc_list]
-        if not isinstance(cf_list, list): cf_list = [cf_list]
         f_score = mf._compute_f_score(inc_list, bal_list, cf_list)
-        z_score = mf._compute_z_score(profile if isinstance(profile, dict) else {}, inc_list, bal_list)
+        z_score = mf._compute_z_score(profile_dict, inc_list, bal_list)
     except Exception as e:
         print(f"[ticker_lookup] F/Z score error: {e}")
 
@@ -524,7 +523,7 @@ def _run_scan(scan_id: str, params: dict, q: queue.Queue, api_key: str):
             if (rec and rec.get("type") == "success"
                     and rec.get("exchange") not in exchanges_list):
                 filtered += 1
-                skip_reasons["Non-US (international off)"] += 1
+                skip_reasons["Exchange not selected"] += 1
             elif (rec and rec.get("type") == "success"
                     and not include_international
                     and rec.get("country") != "US"):
