@@ -1,12 +1,11 @@
 
 import json
-import sqlite3
 import time
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 from magicformula import list_symbols
-from magicformula import DB_PATH, fmp_get, _init_db, compute_mf_from_vault, magic_formula_rank, get_conn
+from magicformula import fmp_get, _init_db, compute_mf_from_vault, magic_formula_rank, get_conn
 # -------------------- Deep Scan --------------------
 
 
