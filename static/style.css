@@ -588,6 +588,8 @@ tr.desc-row td {
   border-radius: 4px;
   font-size: 12px;
   white-space: nowrap;
+  text-transform: none;
+  letter-spacing: normal;
   z-index: 100;
   pointer-events: none;
   opacity: 1;
