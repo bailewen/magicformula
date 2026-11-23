@@ -1051,18 +1051,19 @@ tr.desc-row td {
 }
 .tip { cursor: help; border-bottom: 1px dotted var(--text-muted); position: relative; }
 .tip:hover::after {
+  left: auto; right: 0;
   content: attr(data-tip);
   position: absolute;
   text-transform: none;
   letter-spacing: normal;
   font-style: normal;
   line-height: 1.4;
-  top: 130%;
-  left: 0;
+  top: 130%;  
   background: var(--bg-2);
   border: 1px solid var(--border);
   color: var(--text);
   padding: 4px 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   border-radius: 4px;
   font-size: 12px;
   font-weight: normal;
