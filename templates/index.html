@@ -86,9 +86,7 @@
       <section class="sidebar-section">
         <div class="section-label"> Misc Checks (Optional)</div>
 		<label class="toggle-row"><input type="checkbox" id="include-international"> Include non-US</label>
-		<label class="toggle-row"><input type="checkbox" id="compute-z"> <span class="tip tip-wrap" data-tip="Altman Z-Score: bankruptcy risk. Above 2.99 is safe, 1.81–2.99 is a grey zone, below 1.81 is distressed.">Show Altman Z Score</span></label>
-		<label class="toggle-row"><input type="checkbox" id="compute-f"> <span class="tip tip-wrap" data-tip="Piotroski F-Score: financial strength from 0 to 9. Higher is better. Below 3 suggests deteriorating fundamentals.">Show Piotroski F Score</span></label>
-        <label class="toggle-row"><input type="checkbox" id="check-debt-revenue"> D/E decreasing + Revenue increasing</label>
+		<label class="toggle-row"><input type="checkbox" id="check-debt-revenue"> D/E decreasing + Revenue increasing</label>
         <label class="toggle-row"><input type="checkbox" id="check-cashflow"> Cash flow exceeds net income</label>
 	</section>
 
@@ -331,9 +329,7 @@ function collectParams() {
 	  include_cash: document.getElementById("include-cash").checked,
 	  include_short_debt: document.getElementById("include-short-debt").checked,
       check_debt_revenue: document.getElementById("check-debt-revenue").checked,
-      check_cashflow: document.getElementById("check-cashflow").checked,
-      compute_z: document.getElementById("compute-z").checked,
-      compute_f: document.getElementById("compute-f").checked,      
+      check_cashflow: document.getElementById("check-cashflow").checked,     
   };
 }
 	
@@ -501,6 +497,8 @@ const COL_LABELS = {
 const COL_TIPS = {
   EY:  "Earnings Yield = EBIT / Enterprise Value. Higher means cheaper.",
   ROC: "Return on Capital = EBIT / (Net Working Capital + Net Fixed Assets). Higher means a better business.",
+  ZScore: "Altman Z-Score: bankruptcy risk. Above 2.99 is safe, 1.81–2.99 is a grey zone, below 1.81 is distressed.",
+  FScore: "Piotroski F-Score: financial strength from 0 to 9. Higher is better. Below 3 suggests deteriorating fundamentals.",
 };
 	
 let sortCol = null;
