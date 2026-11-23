@@ -1051,7 +1051,8 @@ tr.desc-row td {
 }
 .tip { cursor: help; border-bottom: 1px dotted var(--text-muted); position: relative; }
 .tip:hover::after {
-  left: auto; right: 0;
+  left: 0;
+  transform: none;
   content: attr(data-tip);
   position: absolute;
   text-transform: none;
