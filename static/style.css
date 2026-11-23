@@ -1076,3 +1076,4 @@ tr.desc-row td {
 .tip-right:hover::after { left: auto; right: 0; }
 .tip-center:hover::after { left: 50%; transform: translateX(-50%); }
 .tip-up:hover::after { top: auto; bottom: 130%; }
+.tip-narrow:hover::after { width: 110px; }
