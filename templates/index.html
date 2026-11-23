@@ -86,8 +86,6 @@
       <section class="sidebar-section">
         <div class="section-label"> Misc Checks (Optional)</div>
 		<label class="toggle-row"><input type="checkbox" id="include-international"> Include non-US</label>
-        <label class="toggle-row"><input type="checkbox" id="compute-z"> Show Altman Z Score</label>
-        <label class="toggle-row"><input type="checkbox" id="compute-f"> Show Piotroski F Score</label>
 		<label class="toggle-row"><input type="checkbox" id="compute-z"> <span class="tip tip-wrap" data-tip="Altman Z-Score: bankruptcy risk. Above 2.99 is safe, 1.81–2.99 is a grey zone, below 1.81 is distressed.">Show Altman Z Score</span></label>
 		<label class="toggle-row"><input type="checkbox" id="compute-f"> <span class="tip tip-wrap" data-tip="Piotroski F-Score: financial strength from 0 to 9. Higher is better. Below 3 suggests deteriorating fundamentals.">Show Piotroski F Score</span></label>
         <label class="toggle-row"><input type="checkbox" id="check-debt-revenue"> D/E decreasing + Revenue increasing</label>
@@ -634,8 +632,10 @@ function renderTable(data) {
 
   thead.innerHTML = `<tr>${cols.map(c => {
     const label = c === "MF_score"
-      ? `MF Score <span class="infotip" title="Ranked within this scan only, not the full market">ⓘ</span>`
-      : (COL_LABELS[c] || c);
+  	  ? `MF Score <span class="infotip" title="Ranked within this scan only, not the full market">ⓘ</span>`
+	  : COL_TIPS[c]                                                                          
+    ? `<span class="tip tip-wrap" data-tip="${COL_TIPS[c]}">${COL_LABELS[c] || c}</span>` 
+    : (COL_LABELS[c] || c);
     const arrow = sortCol === c ? (sortAsc ? " ▲" : " ▼") : " ↕";
     return `<th style="cursor:pointer;" onclick="sortBy('${c}')">${label}${arrow}</th>`;
   }).join("")}</tr>`;
