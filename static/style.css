@@ -1065,3 +1065,24 @@ tr.desc-row td {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+.tip { cursor: help; border-bottom: 1px dotted var(--text-muted); position: relative; }
+.tip:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: 130%;
+  left: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: normal;
+  white-space: nowrap;
+  z-index: 100;
+  pointer-events: none;
+}
+.tip-wrap:hover::after {
+  white-space: normal;
+  width: 220px;
+}
