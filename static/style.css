@@ -1071,7 +1071,7 @@ tr.desc-row td {
   position: absolute;
   top: 130%;
   left: 0;
-  background: var(--bg-card);
+  background: var(--bg-2);
   border: 1px solid var(--border);
   color: var(--text-primary);
   padding: 4px 8px;
