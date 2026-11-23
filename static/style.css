@@ -1051,29 +1051,27 @@ tr.desc-row td {
 }
 .tip { cursor: help; border-bottom: 1px dotted var(--text-muted); position: relative; }
 .tip:hover::after {
-  width: 100px;
-  left: 0;
-  transform: none;
   content: attr(data-tip);
   position: absolute;
-  text-transform: none;
-  letter-spacing: normal;
-  font-style: normal;
-  line-height: 1.4;
-  top: 130%;  
+  top: 130%;
+  left: 0;
   background: var(--bg-2);
   border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   color: var(--text);
   padding: 4px 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   border-radius: 4px;
   font-size: 12px;
   font-weight: normal;
+  font-style: normal;
+  line-height: 1.4;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
   white-space: nowrap;
   z-index: 100;
   pointer-events: none;
 }
-.tip-wrap:hover::after {
-  white-space: normal;
-  width: 220px;
-}
+.tip-wrap:hover::after { white-space: normal; width: 220px; }
+.tip-right:hover::after { left: auto; right: 0; }
+.tip-up:hover::after { top: auto; bottom: 130%; }
