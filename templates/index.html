@@ -630,7 +630,7 @@ function renderTable(data) {
 
   thead.innerHTML = `<tr>${cols.map(c => {
     const label = COL_TIPS[c]
-  	  ? `<span class="tip tip-wrap${c === "MF_score" ? "tip-center" : ""}" data-tip="${COL_TIPS[c]}">${COL_LABELS[c] || c}</span>`
+  	  ? `<span class="tip tip-wrap ${c === "MF_score" ? "tip-right" : "tip-center"}" data-tip="${COL_TIPS[c]}">${COL_LABELS[c] || c}</span>`
   	  : (COL_LABELS[c] || c);
     const arrow = sortCol === c ? (sortAsc ? " ▲" : " ▼") : " ↕";
     return `<th style="cursor:pointer;" onclick="sortBy('${c}')">${label}${arrow}</th>`;
