@@ -631,7 +631,7 @@ function renderTable(data) {
 
   thead.innerHTML = `<tr>${cols.map(c => {
     const label = c === "MF_score"
-  	  ? `<span class="tip tip-wrap" data-tip="Ranked within this scan only, not the full market">MF Score</span>`
+  	  ? `<span class="tip tip-wrap" data-tip="EY and ROC rankings added together. Lower is better.">MF Score</span>`
 	  : COL_TIPS[c]                                                                          
     ? `<span class="tip tip-wrap" data-tip="${COL_TIPS[c]}">${COL_LABELS[c] || c}</span>` 
     : (COL_LABELS[c] || c);
